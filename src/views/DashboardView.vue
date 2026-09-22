@@ -1,5 +1,5 @@
 <template>
-  <PortalLayout>
+  <div class="dashboard-view">
     <section class="control-heading">
       <div>
         <h1>Panel de Control Institucional</h1>
@@ -17,21 +17,27 @@
       </div>
     </section>
 
-    <section class="control-card module-status-card">
+    <section v-auto-animate class="control-card module-status-card">
       <div class="control-card__title">
         <h2>Estado de Modulos</h2>
-        <span>Vista consolidada del hub institucional</span>
+        <span>Modulos a los que tu rol te da acceso</span>
       </div>
 
-      <div class="module-status-grid">
-        <article v-for="module in moduleStatuses" :key="module.name" class="module-status">
+      <p v-if="modulesLoading">Cargando tus modulos...</p>
+      <p v-else-if="modulesError" class="login-card__error">{{ modulesError }}</p>
+      <p v-else-if="!myModules.length" class="security-card__empty">
+        Tu usuario no tiene permisos asignados en ningun modulo todavia.
+      </p>
+
+      <div v-else v-auto-animate class="module-status-grid">
+        <article v-for="module in myModules" :key="module.id" class="module-status">
           <h3>
-            <span :class="`status-dot status-dot--${module.tone}`"></span>
+            <span class="status-dot status-dot--green"></span>
             {{ module.name }}
             <ExternalLink :size="12" />
           </h3>
-          <strong :class="`status-pill status-pill--${module.tone}`">{{ module.status }}</strong>
-          <p>{{ module.detail }}</p>
+          <strong class="status-pill status-pill--green">Acceso concedido</strong>
+          <p>{{ module.permission_codes.join(', ') }}</p>
         </article>
       </div>
     </section>
@@ -72,11 +78,26 @@
         </dl>
       </article>
     </section>
-  </PortalLayout>
+  </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import { onMounted, ref } from 'vue'
 import { CalendarDays, Download, ExternalLink } from 'lucide-vue-next'
-import PortalLayout from '@/layouts/PortalLayout.vue'
-import { controlStats, moduleStatuses, payrollBars, roleDistribution } from '@/data/dashboard'
+import { controlStats, payrollBars, roleDistribution } from '@/data/dashboard'
+import { meService, type MyModuleAccess } from '@/services/meService'
+
+const myModules = ref<MyModuleAccess[]>([])
+const modulesLoading = ref(true)
+const modulesError = ref('')
+
+onMounted(async () => {
+  try {
+    myModules.value = await meService.myModules()
+  } catch (err) {
+    modulesError.value = err instanceof Error ? err.message : 'No se pudieron cargar tus modulos'
+  } finally {
+    modulesLoading.value = false
+  }
+})
 </script>

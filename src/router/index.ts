@@ -1,7 +1,15 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { authService } from '@/services/authService'
 
-const routes = [
+declare module 'vue-router' {
+  interface RouteMeta {
+    requiresAuth?: boolean
+    guestOnly?: boolean
+    portalPadding?: boolean
+  }
+}
+
+const routes: RouteRecordRaw[] = [
   {
     path: '/',
     redirect: '/login',
@@ -16,7 +24,7 @@ const routes = [
     path: '/dashboard',
     name: 'dashboard',
     component: () => import('@/views/DashboardView.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, portalPadding: true },
   },
   {
     path: '/seguridad',

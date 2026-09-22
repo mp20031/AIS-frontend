@@ -7,22 +7,23 @@
   />
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps({
-  compact: {
-    type: Boolean,
-    default: false,
-  },
-  variant: {
-    type: String,
-    default: 'negative',
-    validator: (value) => ['negative', 'positive', 'full'].includes(value),
-  },
-})
+type LogoVariant = 'negative' | 'positive' | 'full'
 
-const sources = {
+const props = withDefaults(
+  defineProps<{
+    compact?: boolean
+    variant?: LogoVariant
+  }>(),
+  {
+    compact: false,
+    variant: 'negative',
+  },
+)
+
+const sources: Record<LogoVariant, string> = {
   negative: '/assets/brand/ais-negativo.png',
   positive: '/assets/brand/ais-positivo.png',
   full: '/assets/brand/ais-full-color.png',

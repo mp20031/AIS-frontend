@@ -7,8 +7,8 @@
       </div>
 
       <label>
-        <span>Correo institucional</span>
-        <input v-model="form.email" type="email" autocomplete="email" placeholder="nombre@salesianoscam.org" />
+        <span>Usuario</span>
+        <input v-model="form.email" type="text" autocomplete="username" placeholder="usuario o correo institucional" />
       </label>
 
       <label>
@@ -16,46 +16,53 @@
         <input v-model="form.password" type="password" autocomplete="current-password" placeholder="********" />
       </label>
 
-      <label>
-        <span>Rol de acceso (demo)</span>
-        <select v-model="form.role">
-          <option value="admin">Administrador — acceso total</option>
-          <option value="rrhh">RRHH — gestión institucional</option>
-          <option value="consulta">Consulta - solo lectura</option>
-        </select>
-      </label>
-
       <label class="login-card__check">
         <input v-model="form.remember" type="checkbox" />
         <span>Mantener sesion iniciada</span>
       </label>
 
-      <button type="submit">Entrar al portal</button>
+      <button type="submit" :disabled="loading">{{ loading ? 'Ingresando...' : 'Entrar al portal' }}</button>
 
-      <p class="login-card__note">
-        Este es un entorno de demostración — cualquier correo/contraseña funciona;
-        el rol seleccionado determina qué módulos verás.
-      </p>
+      <p v-if="error" class="login-card__error">{{ error }}</p>
     </form>
   </AuthLayout>
 </template>
 
-<script setup>
-import { reactive } from 'vue'
+<script setup lang="ts">
+import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AuthLayout from '@/layouts/AuthLayout.vue'
 import { authService } from '@/services/authService'
 
 const router = useRouter()
 const form = reactive({
-  email: 'j.perez@salesianos.edu.sv',
-  password: '123456789',
-  role: 'admin',
+  email: 'jperez',
+  password: 'changeme',
   remember: true,
 })
+const loading = ref(false)
+const error = ref('')
 
 const submit = async () => {
-  await authService.login(form)
-  router.push({ name: 'dashboard' })
+  error.value = ''
+
+  if (!form.email.trim()) {
+    error.value = 'Ingresa tu usuario o correo institucional.'
+    return
+  }
+  if (!form.password) {
+    error.value = 'Ingresa tu contraseña.'
+    return
+  }
+
+  loading.value = true
+  try {
+    await authService.login(form)
+    router.push({ name: 'dashboard' })
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'No se pudo iniciar sesión'
+  } finally {
+    loading.value = false
+  }
 }
 </script>

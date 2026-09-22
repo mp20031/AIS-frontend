@@ -9,11 +9,11 @@
   </header>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import AppLogo from '@/components/AppLogo.vue'
 import UserBadge from '@/components/UserBadge.vue'
 
-defineProps({
-  user: { type: Object, required: true },
-})
+defineProps<{
+  user: { name: string; role: string }
+}>()
 </script>

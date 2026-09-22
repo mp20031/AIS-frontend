@@ -8,13 +8,13 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps({
-  name: { type: String, required: true },
-  role: { type: String, required: true },
-})
+const props = defineProps<{
+  name: string
+  role: string
+}>()
 
 const initials = computed(() =>
   props.name
