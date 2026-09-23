@@ -14,10 +14,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import SidebarNav from '@/components/SidebarNav.vue'
+import { useSession } from '@/composables/useSession'
 
 const collapsed = ref(false)
 const route = useRoute()
+
+// One call per app load, here at the shell rather than in each view: this is
+// the first authenticated component to mount, and it also catches a token
+// whose account was deactivated while the tab sat open.
+const { load } = useSession()
+onMounted(() => load())
 </script>

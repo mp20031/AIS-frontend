@@ -5,6 +5,24 @@ const buildUrl = (path: string) => {
   return `${env.apiBaseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`
 }
 
+/**
+ * An error the API answered with, carrying its status code.
+ *
+ * Callers need to tell a 401 (session is gone — drop it and go to login) from
+ * a 403 (signed in, just not allowed — show the message and stay put). With a
+ * plain `Error` the only way to tell them apart was matching on the Spanish
+ * message text, which breaks the first time the wording changes.
+ */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
 export async function apiRequest<T = unknown>(path: string, options: RequestInit = {}): Promise<T | null> {
   const controller = new AbortController()
   const timeout = window.setTimeout(() => controller.abort(), env.apiTimeoutMs)
@@ -33,7 +51,7 @@ export async function apiRequest<T = unknown>(path: string, options: RequestInit
       } catch {
         // body wasn't JSON, keep raw text
       }
-      throw new Error(message || `HTTP ${response.status}`)
+      throw new ApiError(message || `HTTP ${response.status}`, response.status)
     }
 
     if (response.status === 204) return null

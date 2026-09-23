@@ -21,7 +21,7 @@
       <div class="sidebar__initials">{{ initials }}</div>
       <div>
         <strong>{{ displayName }}</strong>
-        <span>{{ user?.email || user?.username }}</span>
+        <span>{{ subtitle }}</span>
       </div>
     </div>
     <button class="sidebar__logout" type="button" aria-label="Cerrar sesion" @click="logout">
@@ -37,6 +37,7 @@ import { LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, ShieldCheck } f
 import { useRouter } from 'vue-router'
 import AppLogo from '@/components/AppLogo.vue'
 import { authService } from '@/services/authService'
+import { useSession } from '@/composables/useSession'
 
 const props = withDefaults(
   defineProps<{
@@ -54,8 +55,20 @@ defineEmits<{
 const router = useRouter()
 const toggleLabel = computed(() => (props.collapsed ? 'Expandir menu' : 'Contraer menu'))
 
-const user = authService.getUser()
-const displayName = computed(() => user?.name || user?.username || 'Usuario')
+// Live account from `/v1/auth/userinfo`, falling back to the login-time cache
+// only for the first paint, before that request resolves.
+const { user, clear } = useSession()
+const cached = authService.getCachedUser()
+
+const displayName = computed(
+  () => user.value?.display_name || user.value?.username || cached?.name || cached?.username || 'Usuario',
+)
+
+// The primary role, when the account has one — this is what the old UserBadge
+// tried to show with a prop nothing ever supplied.
+const subtitle = computed(
+  () => user.value?.roles[0] || user.value?.email || cached?.email || cached?.username || '',
+)
 const initials = computed(() =>
   displayName.value
     .split(' ')
@@ -68,6 +81,7 @@ const initials = computed(() =>
 
 const logout = () => {
   authService.logout()
+  clear()
   router.replace({ name: 'login' })
 }
 </script>

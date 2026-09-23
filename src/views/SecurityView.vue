@@ -39,7 +39,7 @@
           <em>{{ role.active_grant_count }}</em>
         </button>
 
-        <button class="role-row role-row--new" type="button" @click="startCreateRole">
+        <button v-if="canManageRoles" class="role-row role-row--new" type="button" @click="startCreateRole">
           <span><strong>+ Nuevo Rol</strong></span>
         </button>
       </aside>
@@ -51,8 +51,8 @@
             <p>{{ selectedRole.description || 'Sin descripcion' }}</p>
           </div>
           <div class="security-card__actions">
-            <button class="btn" type="button" @click="handleDeleteRole">Eliminar Rol</button>
-            <button class="btn btn--primary" type="button" :disabled="!isDirty || saving" @click="handleSave">
+            <button v-if="canManageRoles" class="btn" type="button" @click="handleDeleteRole">Eliminar Rol</button>
+            <button v-if="canManageRoles" class="btn btn--primary" type="button" :disabled="!isDirty || saving" @click="handleSave">
               {{ saving ? 'Guardando...' : 'Guardar Cambios' }}
             </button>
           </div>
@@ -131,7 +131,7 @@
             <p>{{ selectedSubject.display_name || 'Sin nombre' }} · {{ selectedSubject.email || 'sin correo' }}</p>
           </div>
           <div class="security-card__actions">
-            <button class="btn btn--primary" type="button" @click="startAssignRole">+ Asignar Rol</button>
+            <button v-if="canCreateGrants" class="btn btn--primary" type="button" @click="startAssignRole">+ Asignar Rol</button>
           </div>
         </div>
 
@@ -147,7 +147,7 @@
               </div>
               <div class="grants-list__actions">
                 <em :class="`effect-pill effect-pill--${grant.effect}`">{{ grant.effect }}</em>
-                <button class="btn btn--ghost" type="button" @click="handleRevokeGrant(grant.id)">Revocar</button>
+                <button v-if="canRevokeGrants" class="btn btn--ghost" type="button" @click="handleRevokeGrant(grant.id)">Revocar</button>
               </div>
             </li>
           </ul>
@@ -242,6 +242,14 @@ import {
   type RoleOut,
   type SubjectOut,
 } from '@/services/securityService'
+import { useSession } from '@/composables/useSession'
+
+// UI gating only — every one of these endpoints re-checks the permission
+// server-side, so hiding a button is a courtesy, never the control.
+const { can } = useSession()
+const canManageRoles = computed(() => can('iam.role.manage'))
+const canCreateGrants = computed(() => can('iam.grant.create'))
+const canRevokeGrants = computed(() => can('iam.grant.revoke'))
 
 type Tab = 'roles' | 'users'
 const activeTab = ref<Tab>('roles')
