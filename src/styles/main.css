@@ -158,8 +158,10 @@ a { color: inherit; text-decoration: none; }
 
 .login-card button,
 .btn {
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 9px;
+  color: var(--ink);
   cursor: pointer;
   font-weight: 800;
   min-height: 42px;
@@ -1125,7 +1127,6 @@ a { color: inherit; text-decoration: none; }
 
 .modal-backdrop {
   align-items: center;
-  animation: fade-in-up 0.15s ease both;
   background: rgb(20 20 22 / 45%);
   display: flex;
   inset: 0;
@@ -1167,12 +1168,14 @@ a { color: inherit; text-decoration: none; }
   margin: -10px 0 0;
 }
 
-.modal-card label {
+.modal-card label,
+.modal-card .modal-field {
   display: grid;
   gap: 8px;
 }
 
-.modal-card label > span {
+.modal-card label > span,
+.modal-card .modal-field > span {
   color: #77767a;
   font-size: 13px;
   font-weight: 800;
@@ -1351,6 +1354,214 @@ a { color: inherit; text-decoration: none; }
   font-weight: 700;
   margin: -4px 0 16px;
   padding: 10px 12px;
+}
+
+/* ---------- Motion & interaction ----------
+   Short, quiet transitions: they confirm an action happened, nothing more. */
+
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ring-brand: 0 0 0 3px rgb(215 47 61 / 22%);
+  --ring-neutral: 0 0 0 3px rgb(31 32 36 / 8%);
+}
+
+/* Buttons */
+.btn,
+.login-card button,
+.pager__btn {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.btn:hover:not(:disabled) { background: #f6f6f5; border-color: #c4c2bf; }
+.btn--primary:hover:not(:disabled),
+.login-card button:hover:not(:disabled) { background: var(--red-dark); border-color: var(--red-dark); }
+.btn:active:not(:disabled),
+.login-card button:active:not(:disabled) { transform: translateY(1px); }
+
+.btn--danger { background: var(--red); border-color: var(--red); color: #ffffff; }
+.btn--danger:hover:not(:disabled) { background: var(--red-dark); border-color: var(--red-dark); }
+
+/* Destructive but secondary, like "Eliminar Rol": reads as neutral until hovered. */
+.btn--danger-quiet { color: var(--red-dark); }
+.btn--danger-quiet:hover:not(:disabled) { background: #fdecea; border-color: #f5b7b1; }
+
+.btn--ghost:hover:not(:disabled) { background: transparent; border-color: transparent; }
+
+/* Keyboard focus only: mouse clicks don't leave a ring behind. */
+.btn:focus-visible,
+.login-card button:focus-visible,
+.pager__btn:focus-visible,
+.role-row:focus-visible,
+.module-summary:focus-visible,
+.tab-bar__item:focus-visible,
+.switch:focus-visible,
+.sidebar__toggle:focus-visible {
+  box-shadow: var(--ring-brand);
+  outline: none;
+}
+
+/* Fields */
+.modal-card input,
+.modal-card textarea,
+.roles-search {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.modal-card input:focus,
+.modal-card textarea:focus {
+  border-color: var(--ink);
+  box-shadow: var(--ring-neutral);
+  outline: none;
+}
+
+.roles-search:focus-within { box-shadow: var(--ring-neutral); }
+
+/* Lists, tabs, switches */
+.role-row { transition: background-color 0.15s ease, color 0.15s ease; }
+.role-row:not(.role-row--active):not(.role-row--new):hover { background: #f4f4f3; }
+.role-row--new { transition: border-color 0.15s ease, color 0.15s ease; }
+.role-row--new:hover { border-color: #9f9d9a; color: var(--ink); }
+
+.module-summary__action { transition: color 0.15s ease; }
+
+.tab-bar__item { transition: color 0.15s ease, border-color 0.2s ease; }
+.tab-bar__item:hover { color: var(--ink); }
+
+.switch { transition: background-color 0.16s ease; }
+.switch:disabled { cursor: not-allowed; opacity: 0.55; }
+
+/* Modals (BaseModal): the backdrop fades, the card rises slightly */
+.modal-enter-active,
+.modal-leave-active { transition: opacity 0.18s ease; }
+.modal-enter-active .modal-card,
+.modal-leave-active .modal-card { transition: opacity 0.18s ease, transform 0.18s var(--ease-out); }
+.modal-enter-from,
+.modal-leave-to { opacity: 0; }
+.modal-enter-from .modal-card,
+.modal-leave-to .modal-card { opacity: 0; transform: translateY(8px) scale(0.98); }
+
+.modal-card--sm { max-width: 400px; }
+
+.confirm-dialog__header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.confirm-dialog__icon {
+  align-items: center;
+  background: #fdecea;
+  border-radius: 50%;
+  color: var(--red-dark);
+  display: flex;
+  flex-shrink: 0;
+  height: 36px;
+  justify-content: center;
+  width: 36px;
+}
+
+.confirm-dialog__message { line-height: 1.5; }
+
+/* Select (BaseSelect) */
+.select { position: relative; }
+
+.select__trigger {
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid #cfcdca;
+  border-radius: 10px;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  height: 50px;
+  justify-content: space-between;
+  padding: 0 14px 0 16px;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  width: 100%;
+}
+
+.select__trigger:hover { border-color: #b3b1ae; }
+
+.select--open .select__trigger,
+.select__trigger:focus-visible {
+  border-color: var(--ink);
+  box-shadow: var(--ring-neutral);
+  outline: none;
+}
+
+.select__value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select__value--placeholder { color: #a3a2a4; }
+
+.select__chevron {
+  color: var(--muted);
+  flex-shrink: 0;
+  transition: transform 0.18s var(--ease-out);
+}
+
+.select--open .select__chevron { transform: rotate(180deg); }
+
+.select__list {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgb(20 20 22 / 12%);
+  left: 0;
+  list-style: none;
+  margin: 6px 0 0;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 4px;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  transform-origin: top center;
+  z-index: 10;
+}
+
+.select__option {
+  align-items: center;
+  border-radius: 7px;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  font-size: 14px;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.select__option--active { background: #f4f4f3; }
+.select__option[aria-selected="true"] { font-weight: 700; }
+.select__option svg { color: var(--red); flex-shrink: 0; }
+
+.select-pop-enter-active { transition: opacity 0.14s ease, transform 0.14s var(--ease-out); }
+.select-pop-leave-active { transition: opacity 0.1s ease; }
+.select-pop-enter-from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+.select-pop-leave-to { opacity: 0; }
+
+/* Save confirmation */
+.toast-enter-active,
+.toast-leave-active { transition: opacity 0.2s ease, transform 0.2s var(--ease-out); }
+.toast-enter-from,
+.toast-leave-to { opacity: 0; transform: translateY(-4px); }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @media (max-width: 980px) {

@@ -5,11 +5,13 @@
       <component :is="Component" />
     </Transition>
   </RouterView>
+  <ConfirmDialog />
 </template>
 
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
 import AppShell from '@/layouts/AppShell.vue'
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 
 const route = useRoute()
 </script>

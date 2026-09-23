@@ -57,11 +57,13 @@
             <p>{{ selectedRole.description || 'Sin descripcion' }}</p>
           </div>
           <div class="security-card__actions">
-            <button v-if="canManageRoles" class="btn" type="button" @click="handleDeleteRole">Eliminar Rol</button>
+            <button v-if="canManageRoles" class="btn btn--danger-quiet" type="button" @click="handleDeleteRole">Eliminar Rol</button>
           </div>
         </div>
 
-        <p v-if="savedMessage" class="save-toast">{{ savedMessage }}</p>
+        <Transition name="toast">
+          <p v-if="savedMessage" class="save-toast">{{ savedMessage }}</p>
+        </Transition>
 
         <div class="permissions-grid">
           <section class="security-card">
@@ -70,7 +72,7 @@
 
             <ul class="module-summary-list">
               <li v-for="module in modules" :key="module.id">
-                <button class="module-summary" type="button" @click="editingModule = module">
+                <button class="module-summary" type="button" @click="openModuleEditor(module)">
                   <span>
                     <strong>{{ module.name }}</strong>
                     <small>{{ grantedInModule(module) }} de {{ module.permissions.length }} permisos</small>
@@ -104,48 +106,48 @@
     </section>
 
     <ModulePermissionsModal
-      v-if="editingModule && selectedRole"
+      :open="moduleEditorOpen"
       :role="selectedRole"
       :module="editingModule"
       :can-manage="canManageRoles"
-      @close="editingModule = null"
+      @close="moduleEditorOpen = false"
       @saved="handleModuleSaved"
     />
 
-    <Teleport to="body">
-      <div v-if="creatingRole" class="modal-backdrop" @click.self="cancelCreateRole">
-        <form class="modal-card" @submit.prevent="confirmCreateRole">
-          <h2>Nuevo Rol</h2>
-          <p>Crea un rol vacio - luego asignale permisos desde el panel.</p>
+    <BaseModal
+      :open="creatingRole"
+      title="Nuevo Rol"
+      description="Crea un rol vacio - luego asignale permisos desde el panel."
+      @close="cancelCreateRole"
+      @submit="confirmCreateRole"
+    >
+      <label>
+        <span>Nombre del rol</span>
+        <input v-model="newRoleName" type="text" placeholder="p. ej. Auditor" maxlength="60" data-autofocus />
+      </label>
 
-          <label>
-            <span>Nombre del rol</span>
-            <input ref="newRoleInput" v-model="newRoleName" type="text" placeholder="p. ej. Auditor" maxlength="60" />
-          </label>
+      <label>
+        <span>Descripcion <small>(opcional)</small></span>
+        <textarea v-model="newRoleDescription" rows="3" placeholder="p. ej. Consulta la bitacora sin poder modificar nada" maxlength="300"></textarea>
+      </label>
 
-          <label>
-            <span>Descripcion <small>(opcional)</small></span>
-            <textarea v-model="newRoleDescription" rows="3" placeholder="p. ej. Consulta la bitacora sin poder modificar nada" maxlength="300"></textarea>
-          </label>
+      <p v-if="actionError" class="login-card__error">{{ actionError }}</p>
 
-          <p v-if="actionError" class="login-card__error">{{ actionError }}</p>
-
-          <div class="modal-card__actions">
-            <button class="btn" type="button" @click="cancelCreateRole">Cancelar</button>
-            <button class="btn btn--primary" type="submit">Crear Rol</button>
-          </div>
-        </form>
-      </div>
-    </Teleport>
+      <template #actions>
+        <button class="btn" type="button" @click="cancelCreateRole">Cancelar</button>
+        <button class="btn btn--primary" type="submit">Crear Rol</button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-vue-next'
 import { securityService, type GrantOut, type ModuleWithPermissions, type RoleOut } from '@/services/securityService'
 import { useSession } from '@/composables/useSession'
-import { useEscapeKey } from '@/composables/useEscapeKey'
+import { useConfirm } from '@/composables/useConfirm'
+import BaseModal from '@/components/ui/BaseModal.vue'
 import ModulePermissionsModal from '@/components/security/ModulePermissionsModal.vue'
 
 defineProps<{ modules: ModuleWithPermissions[] }>()
@@ -160,6 +162,7 @@ const { can } = useSession()
 const canManageRoles = computed(() => can('iam.role.manage'))
 
 const actionError = ref('')
+const confirm = useConfirm()
 
 const selectedRoleId = ref<string | null>(roles.value[0]?.id ?? null)
 const selectedRole = computed(() => roles.value.find((role) => role.id === selectedRoleId.value) ?? null)
@@ -245,14 +248,22 @@ const grantedInModule = (module: ModuleWithPermissions) => {
 
 // ---------------- Per-module editor ----------------
 
+// `editingModule` outlives the modal (it's what the closing animation shows);
+// `moduleEditorOpen` is what opens and closes it.
 const editingModule = ref<ModuleWithPermissions | null>(null)
+const moduleEditorOpen = ref(false)
+
+const openModuleEditor = (module: ModuleWithPermissions) => {
+  editingModule.value = module
+  moduleEditorOpen.value = true
+}
 
 const savedMessage = ref('')
 let savedTimeout: number | undefined
 
 const handleModuleSaved = (updated: RoleOut) => {
   roles.value = roles.value.map((role) => (role.id === updated.id ? updated : role))
-  editingModule.value = null
+  moduleEditorOpen.value = false
   savedMessage.value = `Cambios guardados para "${updated.name}".`
   window.clearTimeout(savedTimeout)
   savedTimeout = window.setTimeout(() => {
@@ -265,14 +276,12 @@ const handleModuleSaved = (updated: RoleOut) => {
 const creatingRole = ref(false)
 const newRoleName = ref('')
 const newRoleDescription = ref('')
-const newRoleInput = ref<HTMLInputElement | null>(null)
 
 const startCreateRole = () => {
   creatingRole.value = true
   newRoleName.value = ''
   newRoleDescription.value = ''
   actionError.value = ''
-  nextTick(() => newRoleInput.value?.focus())
 }
 
 const cancelCreateRole = () => {
@@ -280,9 +289,6 @@ const cancelCreateRole = () => {
   actionError.value = ''
 }
 
-useEscapeKey(() => {
-  if (creatingRole.value) cancelCreateRole()
-})
 
 const confirmCreateRole = async () => {
   const name = newRoleName.value.trim()
@@ -303,15 +309,22 @@ const confirmCreateRole = async () => {
 }
 
 const handleDeleteRole = async () => {
-  if (!selectedRole.value) return
-  if (!window.confirm(`¿Eliminar el rol "${selectedRole.value.name}"? Esta accion no se puede deshacer.`)) return
+  // Captured up front: the selection could change while the dialog is open.
+  const role = selectedRole.value
+  if (!role) return
+  const ok = await confirm({
+    title: `¿Eliminar el rol "${role.name}"?`,
+    message: 'Esta accion no se puede deshacer.',
+    confirmLabel: 'Eliminar rol',
+    tone: 'danger',
+  })
+  if (!ok) return
 
   try {
-    await securityService.deleteRole(selectedRole.value.id)
-    const removedId = selectedRole.value.id
+    await securityService.deleteRole(role.id)
     // Read from the local copy: through v-model, roles.value only reflects
     // the new array once the parent re-renders.
-    const remaining = roles.value.filter((role) => role.id !== removedId)
+    const remaining = roles.value.filter((r) => r.id !== role.id)
     roles.value = remaining
     selectedRoleId.value = remaining[0]?.id ?? null
     actionError.value = ''

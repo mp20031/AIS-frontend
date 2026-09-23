@@ -52,65 +52,59 @@
       </div>
     </section>
 
-    <Teleport to="body">
-      <div v-if="assigningRole" class="modal-backdrop" @click.self="cancelAssignRole">
-        <form class="modal-card" @submit.prevent="confirmAssignRole">
-          <h2>Asignar Rol a {{ selectedSubject?.username }}</h2>
-          <p>Crea un nuevo otorgamiento (GRANT) para este sujeto.</p>
-
-          <label>
-            <span>Rol</span>
-            <select ref="assignRoleSelect" v-model="assignForm.roleId">
-              <option v-for="role in roles" :key="role.id" :value="role.id">{{ role.name }}</option>
-            </select>
-          </label>
-
-          <label>
-            <span>Ambito (unidad organizacional)</span>
-            <select v-model="assignForm.orgUnitId">
-              <option v-for="unit in orgUnits" :key="unit.id" :value="unit.id">
-                {{ '— '.repeat(orgUnitDepth(unit)) }}{{ unit.name }}
-              </option>
-            </select>
-          </label>
-
-          <label class="settings-form__switch">
-            <span>Aplica a subunidades (inherit_down)</span>
-            <button
-              class="switch"
-              :class="{ 'switch--on': assignForm.inheritDown }"
-              type="button"
-              aria-label="Aplica a subunidades"
-              :aria-pressed="assignForm.inheritDown"
-              @click="assignForm.inheritDown = !assignForm.inheritDown"
-            ></button>
-          </label>
-
-          <label>
-            <span>Efecto</span>
-            <select v-model="assignForm.effect">
-              <option value="allow">allow</option>
-              <option value="deny">deny</option>
-            </select>
-          </label>
-
-          <p v-if="actionError" class="login-card__error">{{ actionError }}</p>
-
-          <div class="modal-card__actions">
-            <button class="btn" type="button" @click="cancelAssignRole">Cancelar</button>
-            <button class="btn btn--primary" type="submit">Asignar</button>
-          </div>
-        </form>
+    <BaseModal
+      :open="assigningRole"
+      :title="`Asignar Rol a ${assignTarget?.username ?? ''}`"
+      description="Crea un nuevo otorgamiento (GRANT) para este sujeto."
+      @close="cancelAssignRole"
+      @submit="confirmAssignRole"
+    >
+      <!-- divs, not labels: a label forwards clicks inside it to its control,
+           which would re-toggle the dropdown when an option is clicked. -->
+      <div class="modal-field">
+        <span :id="`${fieldId}-role`">Rol</span>
+        <BaseSelect v-model="assignForm.roleId" :options="roleOptions" :aria-labelledby="`${fieldId}-role`" data-autofocus />
       </div>
-    </Teleport>
+
+      <div class="modal-field">
+        <span :id="`${fieldId}-unit`">Ambito (unidad organizacional)</span>
+        <BaseSelect v-model="assignForm.orgUnitId" :options="orgUnitOptions" :aria-labelledby="`${fieldId}-unit`" />
+      </div>
+
+      <label class="settings-form__switch">
+        <span>Aplica a subunidades (inherit_down)</span>
+        <button
+          class="switch"
+          :class="{ 'switch--on': assignForm.inheritDown }"
+          type="button"
+          aria-label="Aplica a subunidades"
+          :aria-pressed="assignForm.inheritDown"
+          @click="assignForm.inheritDown = !assignForm.inheritDown"
+        ></button>
+      </label>
+
+      <div class="modal-field">
+        <span :id="`${fieldId}-effect`">Efecto</span>
+        <BaseSelect v-model="assignForm.effect" :options="effectOptions" :aria-labelledby="`${fieldId}-effect`" />
+      </div>
+
+      <p v-if="actionError" class="login-card__error">{{ actionError }}</p>
+
+      <template #actions>
+        <button class="btn" type="button" @click="cancelAssignRole">Cancelar</button>
+        <button class="btn btn--primary" type="submit">Asignar</button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
 import { securityService, type GrantOut, type OrgUnitOut, type RoleOut, type SubjectOut } from '@/services/securityService'
 import { useSession } from '@/composables/useSession'
-import { useEscapeKey } from '@/composables/useEscapeKey'
+import { useConfirm } from '@/composables/useConfirm'
+import BaseModal from '@/components/ui/BaseModal.vue'
+import BaseSelect, { type SelectOption } from '@/components/ui/BaseSelect.vue'
 
 const props = defineProps<{
   subjects: SubjectOut[]
@@ -129,6 +123,7 @@ const canCreateGrants = computed(() => can('iam.grant.create'))
 const canRevokeGrants = computed(() => can('iam.grant.revoke'))
 
 const actionError = ref('')
+const confirm = useConfirm()
 
 const orgUnitDepth = (unit: OrgUnitOut) => (unit.path ? unit.path.split('.').length - 1 : 0)
 
@@ -163,7 +158,9 @@ watch(
 // ---------------- Assign / revoke ----------------
 
 const assigningRole = ref(false)
-const assignRoleSelect = ref<HTMLSelectElement | null>(null)
+// Kept apart from the selection so the title doesn't change mid-animation.
+const assignTarget = ref<SubjectOut | null>(null)
+const fieldId = useId()
 const assignForm = ref({
   roleId: '',
   orgUnitId: '',
@@ -171,7 +168,17 @@ const assignForm = ref({
   effect: 'allow' as 'allow' | 'deny',
 })
 
+const roleOptions = computed<SelectOption<string>[]>(() => props.roles.map((role) => ({ value: role.id, label: role.name })))
+const orgUnitOptions = computed<SelectOption<string>[]>(() =>
+  props.orgUnits.map((unit) => ({ value: unit.id, label: unit.name, depth: orgUnitDepth(unit) })),
+)
+const effectOptions: SelectOption<'allow' | 'deny'>[] = [
+  { value: 'allow', label: 'allow — concede el rol' },
+  { value: 'deny', label: 'deny — lo bloquea explicitamente' },
+]
+
 const startAssignRole = () => {
+  assignTarget.value = selectedSubject.value
   assigningRole.value = true
   actionError.value = ''
   assignForm.value = {
@@ -180,7 +187,6 @@ const startAssignRole = () => {
     inheritDown: false,
     effect: 'allow',
   }
-  nextTick(() => assignRoleSelect.value?.focus())
 }
 
 const cancelAssignRole = () => {
@@ -188,19 +194,16 @@ const cancelAssignRole = () => {
   actionError.value = ''
 }
 
-useEscapeKey(() => {
-  if (assigningRole.value) cancelAssignRole()
-})
-
 const confirmAssignRole = async () => {
-  if (!selectedSubject.value) return
+  const subject = assignTarget.value
+  if (!subject) return
   if (!assignForm.value.roleId || !assignForm.value.orgUnitId) {
     actionError.value = 'Selecciona un rol y un ambito.'
     return
   }
   try {
     await securityService.createGrant({
-      subject_id: selectedSubject.value.id,
+      subject_id: subject.id,
       role_id: assignForm.value.roleId,
       org_unit_id: assignForm.value.orgUnitId,
       inherit_down: assignForm.value.inheritDown,
@@ -208,7 +211,7 @@ const confirmAssignRole = async () => {
     })
     assigningRole.value = false
     actionError.value = ''
-    await loadSubjectGrants(selectedSubject.value.id)
+    await loadSubjectGrants(subject.id)
     emit('grantsChanged')
   } catch (err) {
     actionError.value = err instanceof Error ? err.message : 'No se pudo asignar el rol'
@@ -216,11 +219,22 @@ const confirmAssignRole = async () => {
 }
 
 const handleRevokeGrant = async (grantId: string) => {
-  if (!selectedSubject.value) return
-  if (!window.confirm('¿Revocar este otorgamiento?')) return
+  // Captured up front: the selection could change while the dialog is open.
+  const subject = selectedSubject.value
+  if (!subject) return
+  const grant = subjectGrants.value.find((g) => g.id === grantId)
+  const ok = await confirm({
+    title: '¿Revocar este otorgamiento?',
+    message: grant
+      ? `${subject.username} dejara de tener el rol "${grant.role_name}" en ${grant.org_unit_name}. El historial se conserva.`
+      : 'El historial se conserva.',
+    confirmLabel: 'Revocar',
+    tone: 'danger',
+  })
+  if (!ok) return
   try {
     await securityService.revokeGrant(grantId)
-    await loadSubjectGrants(selectedSubject.value.id)
+    await loadSubjectGrants(subject.id)
     emit('grantsChanged')
   } catch (err) {
     actionError.value = err instanceof Error ? err.message : 'No se pudo revocar el otorgamiento'
