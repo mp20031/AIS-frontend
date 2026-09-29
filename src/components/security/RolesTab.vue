@@ -16,6 +16,10 @@
           />
         </label>
 
+        <button v-if="canManageRoles" class="role-create-button" type="button" aria-label="Nuevo rol" title="Nuevo rol" @click="startCreateRole">
+          <Plus :size="17" aria-hidden="true" />
+        </button>
+
         <p v-if="!filteredRoles.length" class="roles-search__empty">Ningun rol coincide con "{{ search.trim() }}".</p>
 
         <div v-auto-animate class="roles-panel__list">
@@ -35,10 +39,6 @@
           </button>
         </div>
 
-        <button v-if="canManageRoles" class="role-row role-row--new" type="button" @click="startCreateRole">
-          <span><strong>+ Nuevo Rol</strong></span>
-        </button>
-
         <nav v-if="rolePageCount > 1" class="pager" aria-label="Paginas de roles">
           <button class="pager__btn" type="button" aria-label="Pagina anterior" :disabled="rolePage === 1" @click="rolePage--">
             <ChevronLeft :size="16" />
@@ -55,9 +55,25 @@
           <div>
             <h2>{{ selectedRole.name }}</h2>
             <p>{{ selectedRole.description || 'Sin descripcion' }}</p>
+            <dl class="role-meta">
+              <div>
+                <dt>Permisos</dt>
+                <dd>{{ selectedRole.permission_codes.length }}</dd>
+              </div>
+              <div>
+                <dt>Otorgamientos</dt>
+                <dd>{{ selectedRole.active_grant_count }}</dd>
+              </div>
+              <div>
+                <dt>Estado</dt>
+                <dd>{{ selectedRole.active ? 'Activo' : 'Inactivo' }}</dd>
+              </div>
+            </dl>
           </div>
           <div class="security-card__actions">
-            <button v-if="canManageRoles" class="btn btn--danger-quiet" type="button" @click="handleDeleteRole">Eliminar Rol</button>
+            <button v-if="canManageRoles" class="btn btn--danger-quiet icon-action" type="button" aria-label="Eliminar rol" title="Eliminar rol" @click="handleDeleteRole">
+              <Trash2 :size="16" aria-hidden="true" />
+            </button>
           </div>
         </div>
 
@@ -67,8 +83,13 @@
 
         <div class="permissions-grid">
           <section class="security-card">
-            <h3>Permisos por Modulo</h3>
-            <p>Abre un modulo para ver o cambiar los permisos (`&lt;modulo&gt;.&lt;recurso&gt;.&lt;accion&gt;`) que trae este rol.</p>
+            <div class="security-card__title">
+              <div>
+                <h3>Permisos por Modulo</h3>
+                <p>Abre un modulo para ver o cambiar los permisos que trae este rol.</p>
+              </div>
+              <span>{{ modules.length }} modulos</span>
+            </div>
 
             <ul class="module-summary-list">
               <li v-for="module in modules" :key="module.id">
@@ -87,8 +108,13 @@
           </section>
 
           <section class="security-card">
-            <h3>Otorgamientos Activos</h3>
-            <p>Sujetos que hoy tienen este rol — la cadena SUBJECT → GRANT → ROLE en vivo.</p>
+            <div class="security-card__title">
+              <div>
+                <h3>Otorgamientos Activos</h3>
+                <p>Sujetos que hoy tienen este rol asignado.</p>
+              </div>
+              <span>{{ roleGrants.length }}</span>
+            </div>
             <p v-if="roleGrantsLoading">Cargando otorgamientos...</p>
             <ul v-else-if="roleGrants.length" v-auto-animate class="grants-list">
               <li v-for="grant in roleGrants" :key="grant.id">
@@ -143,7 +169,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ChevronLeft, ChevronRight, Search } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, Plus, Search, Trash2 } from 'lucide-vue-next'
 import { securityService, type GrantOut, type ModuleWithPermissions, type RoleOut } from '@/services/securityService'
 import { useSession } from '@/composables/useSession'
 import { useConfirm } from '@/composables/useConfirm'

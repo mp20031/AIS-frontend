@@ -71,6 +71,13 @@ export interface GrantCreatePayload {
   effect: 'allow' | 'deny'
 }
 
+export interface SubjectCreatePayload {
+  username: string
+  display_name?: string | null
+  email?: string | null
+  active?: boolean
+}
+
 export const securityService = {
   async listModules(): Promise<ModuleWithPermissions[]> {
     return (await apiRequest<ModuleWithPermissions[]>('/v1/modules')) ?? []
@@ -125,6 +132,19 @@ export const securityService = {
 
   async listSubjects(): Promise<SubjectOut[]> {
     return (await apiRequest<SubjectOut[]>('/v1/subjects')) ?? []
+  },
+
+  async createSubject(payload: SubjectCreatePayload): Promise<SubjectOut> {
+    const subject = await apiRequest<SubjectOut>('/v1/subjects', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+    if (!subject) throw new Error('Respuesta invalida del servidor')
+    return subject
+  },
+
+  async deleteSubject(subjectId: string): Promise<void> {
+    await apiRequest<null>(`/v1/subjects/${subjectId}`, { method: 'DELETE' })
   },
 
   async listOrgUnits(): Promise<OrgUnitOut[]> {
