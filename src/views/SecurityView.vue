@@ -2,8 +2,8 @@
   <div v-auto-animate class="security-view">
     <section class="console-heading">
       <div>
-        <h1>Seguridad · Roles y Permisos</h1>
-        <p>Define que puede ver y hacer cada rol dentro del portal</p>
+        <h1>{{ heading.title }}</h1>
+        <p>{{ heading.description }}</p>
       </div>
     </section>
 
@@ -18,18 +18,25 @@
 
     <p v-if="loadError" class="login-card__error">{{ loadError }}</p>
 
-    <p v-if="loading">Cargando roles y permisos...</p>
+    <p v-if="loading">{{ loadingMessage }}</p>
 
     <!-- KeepAlive so switching tabs keeps each one's selection and page. -->
     <KeepAlive v-else>
       <RolesTab v-if="activeTab === 'roles'" v-model:roles="roles" :modules="modules" />
-      <UsersTab v-else :subjects="subjects" :roles="roles" :org-units="orgUnits" @grants-changed="refreshCounts" />
+      <UsersTab
+        v-else
+        :subjects="subjects"
+        :roles="roles"
+        :org-units="orgUnits"
+        @grants-changed="refreshCounts"
+        @subjects-changed="loadAll"
+      />
     </KeepAlive>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import {
   securityService,
   type ModuleWithPermissions,
@@ -42,6 +49,18 @@ import UsersTab from '@/components/security/UsersTab.vue'
 
 type Tab = 'roles' | 'users'
 const activeTab = ref<Tab>('roles')
+const heading = computed(() =>
+  activeTab.value === 'roles'
+    ? {
+        title: 'Seguridad · Roles y Permisos',
+        description: 'Define que puede ver y hacer cada rol dentro del portal',
+      }
+    : {
+        title: 'Seguridad · Usuarios',
+        description: 'Administra usuarios, asignaciones de roles y ambitos activos',
+      },
+)
+const loadingMessage = computed(() => (activeTab.value === 'roles' ? 'Cargando roles y permisos...' : 'Cargando usuarios...'))
 
 // Loaded once here because both tabs read them: the Users tab offers the
 // roles and org units when assigning, and both show live grant counts.
@@ -68,7 +87,7 @@ const loadAll = async () => {
     subjects.value = subjectsRes
     orgUnits.value = orgUnitsRes.sort((a, b) => (a.path ?? '').localeCompare(b.path ?? ''))
   } catch (err) {
-    loadError.value = err instanceof Error ? err.message : 'No se pudieron cargar los roles y permisos'
+    loadError.value = err instanceof Error ? err.message : 'No se pudieron cargar los roles, permisos y usuarios'
   } finally {
     loading.value = false
   }
