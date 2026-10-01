@@ -1553,6 +1553,138 @@ a { color: inherit; text-decoration: none; }
 .toast-enter-from,
 .toast-leave-to { opacity: 0; transform: translateY(-4px); }
 
+/* Links styled as buttons (e.g. "Abrir" on a module card) */
+a.btn {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+/* Launchable module cards: the whole card is the link (stretched from the name) */
+.module-status--launchable {
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s var(--ease-out);
+}
+
+.module-status--launchable:hover {
+  border-color: #c4c2bf;
+  box-shadow: 0 6px 18px rgb(20 20 22 / 8%);
+  transform: translateY(-1px);
+}
+
+/* Keyboard focus on the card's link rings the whole card (not a mouse click on "+N más"). */
+.module-status--launchable:has(.module-status__link:focus-visible) { box-shadow: var(--ring-brand); }
+
+.module-status__link {
+  align-items: center;
+  color: inherit;
+  display: inline-flex;
+  gap: 6px;
+  outline: none;
+}
+
+.module-status__link::after {
+  border-radius: 8px;
+  content: "";
+  inset: 0;
+  position: absolute;
+}
+
+.module-status__link svg { color: var(--muted); transition: color 0.15s ease; }
+.module-status--launchable:hover .module-status__link svg { color: var(--red); }
+
+/* Stays clickable above the stretched link. */
+.module-perms__toggle { position: relative; z-index: 1; }
+
+/* Module card: count + a few permission tags, the rest behind "+N más" */
+.module-status {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.module-status > .status-pill { align-self: flex-start; }
+
+.module-perms {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.module-perms__count {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  width: 100%;
+}
+
+.module-perms__list {
+  display: contents;
+  list-style: none;
+}
+
+.module-perms__list li {
+  background: #f4f4f3;
+  border-radius: 999px;
+  color: #5f5e62;
+  font-family: Consolas, "SFMono-Regular", monospace;
+  font-size: 11px;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 3px 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.module-perms__toggle {
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  color: var(--red-dark);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 6px;
+  transition: background-color 0.15s ease;
+}
+
+.module-perms__toggle:hover { background: #fdecea; }
+.module-perms__toggle:focus-visible { box-shadow: var(--ring-brand); outline: none; }
+
+/* /launch/:module — shown for the instant between the click and the redirect */
+.launch-view {
+  display: grid;
+  min-height: 60vh;
+  place-items: center;
+}
+
+.launch-card {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  max-width: 420px;
+  padding: 36px 32px;
+  text-align: center;
+  width: 100%;
+}
+
+.launch-card__spinner {
+  animation: launch-spin 0.8s linear infinite;
+  border: 3px solid var(--line);
+  border-radius: 50%;
+  border-top-color: var(--red);
+  height: 32px;
+  margin-bottom: 6px;
+  width: 32px;
+}
+
+@keyframes launch-spin {
+  to { transform: rotate(360deg); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

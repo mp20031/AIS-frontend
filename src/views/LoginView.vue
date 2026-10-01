@@ -30,11 +30,19 @@
 
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AuthLayout from '@/layouts/AuthLayout.vue'
 import { authService } from '@/services/authService'
 
 const router = useRouter()
+const route = useRoute()
+
+// Only same-site paths: an open redirect here would let a link send someone
+// who just logged in to any site at all.
+const redirectTarget = () => {
+  const target = route.query.redirect
+  return typeof target === 'string' && target.startsWith('/') && !target.startsWith('//') ? target : null
+}
 const form = reactive({
   email: 'jperez',
   password: 'changeme',
@@ -58,7 +66,7 @@ const submit = async () => {
   loading.value = true
   try {
     await authService.login(form)
-    router.push({ name: 'dashboard' })
+    router.push(redirectTarget() ?? { name: 'dashboard' })
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'No se pudo iniciar sesión'
   } finally {

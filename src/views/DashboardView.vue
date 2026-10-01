@@ -30,14 +30,45 @@
       </p>
 
       <div v-else v-auto-animate class="module-status-grid">
-        <article v-for="module in myModules" :key="module.id" class="module-status">
+        <article
+          v-for="module in myModules"
+          :key="module.id"
+          class="module-status"
+          :class="{ 'module-status--launchable': module.launchable }"
+        >
           <h3>
             <span class="status-dot status-dot--green"></span>
-            {{ module.name }}
-            <ExternalLink :size="12" />
+            <!-- The whole card opens the module: this link's hit area is stretched
+                 over it in CSS, so the card stays one link with one name. -->
+            <RouterLink
+              v-if="module.launchable"
+              class="module-status__link"
+              :to="{ name: 'launch', params: { moduleKey: module.key } }"
+              :aria-label="`Abrir ${module.name}`"
+            >
+              {{ module.name }}
+              <ExternalLink :size="12" />
+            </RouterLink>
+            <template v-else>{{ module.name }}</template>
           </h3>
           <strong class="status-pill status-pill--green">Acceso concedido</strong>
-          <p>{{ module.permission_codes.join(', ') }}</p>
+          <div class="module-perms">
+            <span class="module-perms__count">
+              {{ module.permission_codes.length }} {{ module.permission_codes.length === 1 ? 'permiso' : 'permisos' }}
+            </span>
+            <ul class="module-perms__list">
+              <li v-for="code in visiblePermissions(module)" :key="code" :title="code">{{ code }}</li>
+            </ul>
+            <button
+              v-if="module.permission_codes.length > PERMS_PREVIEW"
+              class="module-perms__toggle"
+              type="button"
+              :aria-expanded="expanded.has(module.id)"
+              @click="toggleExpanded(module.id)"
+            >
+              {{ expanded.has(module.id) ? 'Ver menos' : `+${module.permission_codes.length - PERMS_PREVIEW} más` }}
+            </button>
+          </div>
         </article>
       </div>
     </section>
@@ -88,6 +119,22 @@ import { controlStats, payrollBars, roleDistribution } from '@/data/dashboard'
 import { meService, type MyModuleAccess } from '@/services/meService'
 
 const myModules = ref<MyModuleAccess[]>([])
+
+// A role can carry dozens of permissions; the card shows a few and expands on demand.
+const PERMS_PREVIEW = 3
+const expanded = ref(new Set<string>())
+
+const visiblePermissions = (module: MyModuleAccess) => {
+  const sorted = [...module.permission_codes].sort()
+  return expanded.value.has(module.id) ? sorted : sorted.slice(0, PERMS_PREVIEW)
+}
+
+const toggleExpanded = (id: string) => {
+  const next = new Set(expanded.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  expanded.value = next
+}
 const modulesLoading = ref(true)
 const modulesError = ref('')
 
