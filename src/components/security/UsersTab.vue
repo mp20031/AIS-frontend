@@ -3,7 +3,7 @@
     <p v-if="actionError && !assigningRole && !creatingSubject" class="login-card__error">{{ actionError }}</p>
 
     <section class="security-layout">
-      <aside v-auto-animate class="roles-panel">
+      <aside class="roles-panel">
         <label class="roles-search">
           <Search :size="15" aria-hidden="true" />
           <input
@@ -28,20 +28,38 @@
 
         <p v-if="!filteredSubjects.length" class="roles-search__empty">Ningun usuario coincide con "{{ subjectSearch.trim() }}".</p>
 
-        <button
-          v-for="subject in filteredSubjects"
-          :key="subject.id"
-          class="role-row"
-          :class="{ 'role-row--active': subject.id === selectedSubjectId }"
-          type="button"
-          @click="selectedSubjectId = subject.id"
-        >
-          <span>
-            <strong>{{ subject.username }}</strong>
-            <small>{{ subject.display_name || subject.email || 'Sin nombre' }}</small>
-          </span>
-          <em>{{ subject.active_grant_count }}</em>
-        </button>
+        <div v-auto-animate class="roles-panel__list">
+          <button
+            v-for="subject in pagedSubjects"
+            :key="subject.id"
+            class="role-row"
+            :class="{ 'role-row--active': subject.id === selectedSubjectId }"
+            type="button"
+            @click="selectedSubjectId = subject.id"
+          >
+            <span>
+              <strong>{{ subject.username }}</strong>
+              <small>{{ subject.display_name || subject.email || 'Sin nombre' }}</small>
+            </span>
+            <em>{{ subject.active_grant_count }}</em>
+          </button>
+        </div>
+
+        <nav v-if="subjectPageCount > 1" class="pager" aria-label="Paginas de usuarios">
+          <button class="pager__btn" type="button" aria-label="Pagina anterior" :disabled="subjectPage === 1" @click="subjectPage--">
+            <ChevronLeft :size="16" />
+          </button>
+          <span>{{ subjectPage }} / {{ subjectPageCount }}</span>
+          <button
+            class="pager__btn"
+            type="button"
+            aria-label="Pagina siguiente"
+            :disabled="subjectPage === subjectPageCount"
+            @click="subjectPage++"
+          >
+            <ChevronRight :size="16" />
+          </button>
+        </nav>
       </aside>
 
       <div v-if="selectedSubject" class="security-main">
@@ -265,10 +283,11 @@
 
 <script setup lang="ts">
 import { computed, ref, useId, watch } from 'vue'
-import { RotateCcw, Search, ShieldPlus, Trash2, UserPlus, X } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, RotateCcw, Search, ShieldPlus, Trash2, UserPlus, X } from 'lucide-vue-next'
 import { securityService, type GrantOut, type OrgUnitOut, type RoleOut, type SubjectOut } from '@/services/securityService'
 import { useSession } from '@/composables/useSession'
 import { useConfirm } from '@/composables/useConfirm'
+import { usePagination } from '@/composables/usePagination'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseSelect, { type SelectOption } from '@/components/ui/BaseSelect.vue'
 
@@ -306,6 +325,14 @@ const filteredSubjects = computed(() => {
     normalize(`${subject.username} ${subject.display_name ?? ''} ${subject.email ?? ''}`).includes(query),
   )
 })
+
+// Same paging as the roles list: 6 per page, following the selection.
+const SUBJECTS_PER_PAGE = 6
+const {
+  page: subjectPage,
+  pageCount: subjectPageCount,
+  pagedItems: pagedSubjects,
+} = usePagination(filteredSubjects, selectedSubjectId, SUBJECTS_PER_PAGE)
 
 const subjectGrants = ref<GrantOut[]>([])
 const subjectGrantsLoading = ref(false)

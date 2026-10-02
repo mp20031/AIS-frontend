@@ -173,6 +173,7 @@ import { ChevronLeft, ChevronRight, Plus, Search, Trash2 } from 'lucide-vue-next
 import { securityService, type GrantOut, type ModuleWithPermissions, type RoleOut } from '@/services/securityService'
 import { useSession } from '@/composables/useSession'
 import { useConfirm } from '@/composables/useConfirm'
+import { usePagination } from '@/composables/usePagination'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import ModulePermissionsModal from '@/components/security/ModulePermissionsModal.vue'
 
@@ -214,27 +215,12 @@ const selectFirstMatch = () => {
 
 // ---------------- Pagination ----------------
 
-// The API returns every role in one call, so paging is purely a display
-// concern: it keeps the panel a fixed height however many roles exist.
 const ROLES_PER_PAGE = 6
-const rolePage = ref(1)
-const rolePageCount = computed(() => Math.max(1, Math.ceil(filteredRoles.value.length / ROLES_PER_PAGE)))
-const pagedRoles = computed(() => {
-  const start = (rolePage.value - 1) * ROLES_PER_PAGE
-  return filteredRoles.value.slice(start, start + ROLES_PER_PAGE)
-})
-
-// Show the page holding the selection — so a newly created role (appended at
-// the end) is on screen — or the first page when a search hides it.
-// Watching the list too covers v-model's lag: a role created here is only in
-// `roles` after the parent re-renders.
-watch([selectedRoleId, filteredRoles], ([id]) => {
-  const index = filteredRoles.value.findIndex((role) => role.id === id)
-  rolePage.value = index === -1 ? 1 : Math.floor(index / ROLES_PER_PAGE) + 1
-})
-watch(rolePageCount, (count) => {
-  if (rolePage.value > count) rolePage.value = count
-})
+const {
+  page: rolePage,
+  pageCount: rolePageCount,
+  pagedItems: pagedRoles,
+} = usePagination(filteredRoles, selectedRoleId, ROLES_PER_PAGE)
 
 // ---------------- Selected role ----------------
 
