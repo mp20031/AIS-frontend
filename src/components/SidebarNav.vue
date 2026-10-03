@@ -12,7 +12,7 @@
         <LayoutDashboard :size="16" />
         <span>Dashboard</span>
       </RouterLink>
-      <RouterLink to="/seguridad">
+      <RouterLink v-if="canAccessSecurity" to="/seguridad">
         <ShieldCheck :size="16" />
         <span>Seguridad</span>
       </RouterLink>
@@ -36,6 +36,7 @@ import { computed } from 'vue'
 import { LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, ShieldCheck } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import AppLogo from '@/components/AppLogo.vue'
+import { PERMISSIONS } from '@/config/permissions'
 import { authService } from '@/services/authService'
 import { useSession } from '@/composables/useSession'
 
@@ -59,6 +60,15 @@ const toggleLabel = computed(() => (props.collapsed ? 'Expandir menu' : 'Contrae
 // only for the first paint, before that request resolves.
 const { user, clear } = useSession()
 const cached = authService.getCachedUser()
+
+const canAccessSecurity = computed(() =>
+  [
+    PERMISSIONS.IAM_USER_VIEW,
+    PERMISSIONS.IAM_ROLE_MANAGE,
+    PERMISSIONS.IAM_GRANT_CREATE,
+    PERMISSIONS.IAM_GRANT_REVOKE,
+  ].some((permission) => user.value?.permissions.includes(permission)),
+)
 
 const displayName = computed(
   () => user.value?.display_name || user.value?.username || cached?.name || cached?.username || 'Usuario',

@@ -16,6 +16,15 @@
     </template>
 
     <p v-if="options.message" class="confirm-dialog__message">{{ options.message }}</p>
+    <div v-if="options.warning" class="confirm-dialog__warning" role="note">
+      <span class="confirm-dialog__warning-icon" aria-hidden="true">
+        <TriangleAlert :size="16" />
+      </span>
+      <div>
+        <strong>Ten en cuenta</strong>
+        <p>{{ options.warning }}</p>
+      </div>
+    </div>
 
     <template #actions>
       <!-- Focus starts on Cancelar: Enter on a destructive dialog should not destroy. -->

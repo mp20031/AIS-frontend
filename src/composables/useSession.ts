@@ -14,31 +14,37 @@ import { ApiError } from '@/services/httpClient'
 const user = ref<UserInfo | null>(null)
 const loading = ref(false)
 const error = ref('')
+let loadPromise: Promise<void> | null = null
 
 async function load(force = false): Promise<void> {
   if (!authService.isAuthenticated()) return
   if (user.value && !force) return
-  if (loading.value) return
+  if (loadPromise) return loadPromise
 
   loading.value = true
   error.value = ''
 
-  try {
-    user.value = await authService.fetchUserInfo()
-  } catch (err) {
-    // A 401 here means the token is signed but the account behind it is gone
-    // or deactivated. Keeping the shell on screen would show a session that no
-    // longer exists, so the session is dropped instead.
-    if (err instanceof ApiError && err.status === 401) {
-      authService.logout()
-      user.value = null
-      await router.replace({ name: 'login' })
-      return
+  loadPromise = (async () => {
+    try {
+      user.value = await authService.fetchUserInfo()
+    } catch (err) {
+      // A 401 here means the token is signed but the account behind it is gone
+      // or deactivated. Keeping the shell on screen would show a session that no
+      // longer exists, so the session is dropped instead.
+      if (err instanceof ApiError && err.status === 401) {
+        authService.logout()
+        user.value = null
+        await router.replace({ name: 'login' })
+        return
+      }
+      error.value = err instanceof Error ? err.message : 'No se pudo cargar tu sesion'
+    } finally {
+      loading.value = false
+      loadPromise = null
     }
-    error.value = err instanceof Error ? err.message : 'No se pudo cargar tu sesion'
-  } finally {
-    loading.value = false
-  }
+  })()
+
+  return loadPromise
 }
 
 function clear(): void {

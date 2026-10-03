@@ -78,6 +78,12 @@ export interface SubjectCreatePayload {
   active?: boolean
 }
 
+export interface SubjectUpdatePayload {
+  active?: boolean
+  display_name?: string | null
+  email?: string | null
+}
+
 export const securityService = {
   async listModules(): Promise<ModuleWithPermissions[]> {
     return (await apiRequest<ModuleWithPermissions[]>('/v1/modules')) ?? []
@@ -143,8 +149,13 @@ export const securityService = {
     return subject
   },
 
-  async deleteSubject(subjectId: string): Promise<void> {
-    await apiRequest<null>(`/v1/subjects/${subjectId}`, { method: 'DELETE' })
+  async updateSubject(subjectId: string, payload: SubjectUpdatePayload): Promise<SubjectOut> {
+    const subject = await apiRequest<SubjectOut>(`/v1/subjects/${subjectId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    })
+    if (!subject) throw new Error('Respuesta invalida del servidor')
+    return subject
   },
 
   async listOrgUnits(): Promise<OrgUnitOut[]> {

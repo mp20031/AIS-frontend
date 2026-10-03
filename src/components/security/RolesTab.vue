@@ -174,6 +174,7 @@ import { securityService, type GrantOut, type ModuleWithPermissions, type RoleOu
 import { useSession } from '@/composables/useSession'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePagination } from '@/composables/usePagination'
+import { PERMISSIONS } from '@/config/permissions'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import ModulePermissionsModal from '@/components/security/ModulePermissionsModal.vue'
 
@@ -186,7 +187,7 @@ const roles = defineModel<RoleOut[]>('roles', { required: true })
 // UI gating only — every one of these endpoints re-checks the permission
 // server-side, so hiding a button is a courtesy, never the control.
 const { can } = useSession()
-const canManageRoles = computed(() => can('iam.role.manage'))
+const canManageRoles = computed(() => can(PERMISSIONS.IAM_ROLE_MANAGE))
 
 const actionError = ref('')
 const confirm = useConfirm()
@@ -229,10 +230,17 @@ const roleGrantsLoading = ref(false)
 
 const loadRoleGrants = async (roleId: string) => {
   roleGrantsLoading.value = true
+
   try {
-    roleGrants.value = await securityService.listGrants({ roleId })
-  } catch {
+    roleGrants.value =
+      await securityService.listGrants({ roleId })
+  } catch (err) {
     roleGrants.value = []
+
+    actionError.value =
+      err instanceof Error
+        ? err.message
+        : 'No se pudieron cargar los otorgamientos'
   } finally {
     roleGrantsLoading.value = false
   }

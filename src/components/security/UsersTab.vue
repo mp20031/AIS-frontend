@@ -15,6 +15,15 @@
           />
         </label>
 
+        <label class="roles-filter">
+          <span>Mostrar</span>
+          <select v-model="statusFilter" aria-label="Filtrar usuarios por estado">
+            <option value="active">Activos</option>
+            <option value="inactive">Inactivos</option>
+            <option value="all">Todos</option>
+          </select>
+        </label>
+
         <button
           v-if="canCreateSubjects"
           class="role-create-button"
@@ -33,12 +42,18 @@
             v-for="subject in pagedSubjects"
             :key="subject.id"
             class="role-row"
-            :class="{ 'role-row--active': subject.id === selectedSubjectId }"
+            :class="{
+              'role-row--active': subject.id === selectedSubjectId,
+              'role-row--inactive': !subject.active,
+            }"
             type="button"
             @click="selectedSubjectId = subject.id"
           >
             <span>
-              <strong>{{ subject.username }}</strong>
+              <strong>
+                {{ subject.username }}
+                <small v-if="!subject.active" class="role-row__status">Inactivo</small>
+              </strong>
               <small>{{ subject.display_name || subject.email || 'Sin nombre' }}</small>
             </span>
             <em>{{ subject.active_grant_count }}</em>
@@ -82,15 +97,19 @@
             <button v-if="canCreateGrants" class="btn btn--primary icon-action" type="button" aria-label="Asignar rol" title="Asignar rol" @click="startAssignRole">
               <ShieldPlus :size="16" aria-hidden="true" />
             </button>
+            <button v-if="canUpdateSubjects && !isOwnSubject" class="btn btn--soft icon-action" type="button" aria-label="Editar usuario" title="Editar usuario" @click="startEditSubject">
+              <Pencil :size="16" aria-hidden="true" />
+            </button>
             <button
-              v-if="canDeleteSubjects"
+              v-if="canUpdateSubjects && !isOwnSubject"
               class="btn btn--danger-quiet icon-action"
               type="button"
-              aria-label="Eliminar usuario"
-              title="Eliminar usuario"
-              @click="handleDeleteSubject"
+              :aria-label="selectedSubject.active ? 'Desactivar usuario' : 'Reactivar usuario'"
+              :title="selectedSubject.active ? 'Desactivar usuario' : 'Reactivar usuario'"
+              @click="handleToggleSubject"
             >
-              <Trash2 :size="16" aria-hidden="true" />
+              <UserX v-if="selectedSubject.active" :size="16" aria-hidden="true" />
+              <UserCheck v-else :size="16" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -228,6 +247,31 @@
     </BaseModal>
 
     <BaseModal
+      :open="editingSubject"
+      :title="`Editar usuario ${editTarget?.username ?? ''}`"
+      description="Actualiza el nombre visible y el correo del usuario."
+      @close="cancelEditSubject"
+      @submit="confirmEditSubject"
+    >
+      <div class="user-form-grid">
+        <label class="user-form-grid__wide">
+          <span>Nombre</span>
+          <input v-model="editForm.displayName" type="text" placeholder="p. ej. Juan Perez" maxlength="120" data-autofocus />
+        </label>
+        <label class="user-form-grid__wide">
+          <span>Correo</span>
+          <input v-model="editForm.email" type="email" placeholder="p. ej. jperez@colegio.edu" maxlength="180" :aria-invalid="Boolean(editEmailError)" />
+          <small v-if="editEmailError" class="login-card__error">{{ editEmailError }}</small>
+        </label>
+      </div>
+      <p v-if="editFormError" class="login-card__error">{{ editFormError }}</p>
+      <template #actions>
+        <button class="btn" type="button" @click="cancelEditSubject">Cancelar</button>
+        <button class="btn btn--primary" type="submit">Guardar</button>
+      </template>
+    </BaseModal>
+
+    <BaseModal
       :open="assigningRole"
       :title="`Asignar Rol a ${assignTarget?.username ?? ''}`"
       description="Crea un nuevo otorgamiento para este usuario."
@@ -283,11 +327,14 @@
 
 <script setup lang="ts">
 import { computed, ref, useId, watch } from 'vue'
-import { ChevronLeft, ChevronRight, RotateCcw, Search, ShieldPlus, Trash2, UserPlus, X } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, Pencil, RotateCcw, Search, ShieldPlus, UserCheck, UserPlus, UserX, X } from 'lucide-vue-next'
+import { toast } from 'vue3-toastify'
+import { ApiError } from '@/services/httpClient'
 import { securityService, type GrantOut, type OrgUnitOut, type RoleOut, type SubjectOut } from '@/services/securityService'
 import { useSession } from '@/composables/useSession'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePagination } from '@/composables/usePagination'
+import { PERMISSIONS } from '@/config/permissions'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseSelect, { type SelectOption } from '@/components/ui/BaseSelect.vue'
 
@@ -299,13 +346,11 @@ const props = defineProps<{
 
 const emit = defineEmits<{ grantsChanged: []; subjectsChanged: [] }>()
 
-const { can } = useSession()
-const canCreateGrants = computed(() => can('iam.grant.create'))
-const canRevokeGrants = computed(() => can('iam.grant.revoke'))
-const canCreateSubjects = computed(
-  () => can('iam.subject.manage') || can('iam.subject.create') || can('iam.user.manage') || canCreateGrants.value,
-)
-const canDeleteSubjects = computed(() => can('iam.subject.manage') || can('iam.subject.delete') || can('iam.user.manage'))
+const { can, user } = useSession()
+const canCreateGrants = computed(() => can(PERMISSIONS.IAM_GRANT_CREATE))
+const canRevokeGrants = computed(() => can(PERMISSIONS.IAM_GRANT_REVOKE))
+const canCreateSubjects = computed(() => can(PERMISSIONS.IAM_USER_CREATE))
+const canUpdateSubjects = computed(() => can(PERMISSIONS.IAM_USER_UPDATE))
 
 const actionError = ref('')
 const confirm = useConfirm()
@@ -316,14 +361,29 @@ const normalize = (text: string) => text.normalize('NFD').replace(/\p{Diacritic}
 // ---------------- Selected user ----------------
 
 const subjectSearch = ref('')
-const selectedSubjectId = ref<string | null>(props.subjects[0]?.id ?? null)
+type StatusFilter = 'active' | 'inactive' | 'all'
+
+const statusFilter = ref<StatusFilter>('active')
+const selectedSubjectId = ref<string | null>(props.subjects.find((subject) => subject.active)?.id ?? null)
 const selectedSubject = computed(() => props.subjects.find((s) => s.id === selectedSubjectId.value) ?? null)
+const isOwnSubject = computed(() => {
+  const subject = selectedSubject.value
+  const currentUser = user.value
+  if (!subject || !currentUser) return false
+
+  return subject.id === currentUser.id || subject.username === currentUser.username
+})
 const filteredSubjects = computed(() => {
   const query = normalize(subjectSearch.value.trim())
-  if (!query) return props.subjects
-  return props.subjects.filter((subject) =>
-    normalize(`${subject.username} ${subject.display_name ?? ''} ${subject.email ?? ''}`).includes(query),
-  )
+  return props.subjects.filter((subject) => {
+    const matchesStatus =
+      statusFilter.value === 'all' ||
+      (statusFilter.value === 'active' ? subject.active : !subject.active)
+    if (!matchesStatus) return false
+
+    if (!query) return true
+    return normalize(`${subject.username} ${subject.display_name ?? ''} ${subject.email ?? ''}`).includes(query)
+  })
 })
 
 // Same paging as the roles list: 6 per page, following the selection.
@@ -339,10 +399,17 @@ const subjectGrantsLoading = ref(false)
 
 const loadSubjectGrants = async (subjectId: string) => {
   subjectGrantsLoading.value = true
+
   try {
-    subjectGrants.value = await securityService.listGrants({ subjectId })
-  } catch {
+    subjectGrants.value =
+      await securityService.listGrants({ subjectId })
+  } catch (err) {
     subjectGrants.value = []
+
+    actionError.value =
+      err instanceof Error
+        ? err.message
+        : 'No se pudieron cargar los otorgamientos'
   } finally {
     subjectGrantsLoading.value = false
   }
@@ -360,12 +427,65 @@ watch(
 
 watch(
   () => props.subjects,
-  (subjects) => {
-    if (!selectedSubjectId.value || !subjects.some((subject) => subject.id === selectedSubjectId.value)) {
-      selectedSubjectId.value = subjects[0]?.id ?? null
+  () => {
+    if (!selectedSubjectId.value || !filteredSubjects.value.some((subject) => subject.id === selectedSubjectId.value)) {
+      selectedSubjectId.value = filteredSubjects.value[0]?.id ?? null
     }
   },
 )
+
+watch(filteredSubjects, (subjects) => {
+  if (!subjects.some((subject) => subject.id === selectedSubjectId.value)) {
+    selectedSubjectId.value = subjects[0]?.id ?? null
+  }
+})
+
+// ---------------- Edit / create user ----------------
+
+const editingSubject = ref(false)
+const editTarget = ref<SubjectOut | null>(null)
+const editForm = ref({ displayName: '', email: '' })
+const editEmailError = ref('')
+const editFormError = ref('')
+
+const startEditSubject = () => {
+  const subject = selectedSubject.value
+  if (!subject) return
+  editTarget.value = subject
+  editForm.value = { displayName: subject.display_name ?? '', email: subject.email ?? '' }
+  editEmailError.value = ''
+  editFormError.value = ''
+  editingSubject.value = true
+}
+
+const cancelEditSubject = () => {
+  editingSubject.value = false
+  editTarget.value = null
+  editEmailError.value = ''
+  editFormError.value = ''
+}
+
+const confirmEditSubject = async () => {
+  const subject = editTarget.value
+  if (!subject) return
+  editEmailError.value = ''
+  editFormError.value = ''
+  try {
+    await securityService.updateSubject(subject.id, {
+      display_name: editForm.value.displayName.trim() || null,
+      email: editForm.value.email.trim() || null,
+    })
+    cancelEditSubject()
+    toast.success('Usuario actualizado correctamente.')
+    emit('subjectsChanged')
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 409) {
+      editEmailError.value = 'El correo ya está en uso'
+      return
+    }
+    editFormError.value = err instanceof Error ? err.message : 'No se pudo actualizar el usuario'
+  }
+}
 
 // ---------------- Create / delete user ----------------
 
@@ -429,23 +549,30 @@ const confirmCreateSubject = async () => {
   }
 }
 
-const handleDeleteSubject = async () => {
+const handleToggleSubject = async () => {
   const subject = selectedSubject.value
-  if (!subject) return
+  if (!subject || isOwnSubject.value) return
+  const active = !subject.active
+  const action = active ? 'Reactivar' : 'Desactivar'
   const ok = await confirm({
-    title: `Eliminar el usuario "${subject.username}"?`,
-    message: 'Si tiene roles activos, revocalos antes. Esta accion depende de que el servidor permita eliminar sujetos.',
-    confirmLabel: 'Eliminar usuario',
-    tone: 'danger',
+    title: `${action} el usuario "${subject.username}"?`,
+    message: active
+      ? 'El usuario recuperara el acceso y conservara sus roles.'
+      : 'El usuario no podra iniciar sesion. Si tiene el portal abierto, su sesion se cerrara en la siguiente carga. Sus roles se conservaran.',
+    ...(active
+      ? {}
+      : { warning: 'Los tokens ya emitidos seguirán funcionando hasta que venzan (máximo 60 minutos).' }),
+    confirmLabel: `${action} usuario`,
+    ...(active ? {} : { tone: 'danger' as const }),
   })
   if (!ok) return
   try {
-    await securityService.deleteSubject(subject.id)
-    selectedSubjectId.value = props.subjects.find((s) => s.id !== subject.id)?.id ?? null
+    await securityService.updateSubject(subject.id, { active })
     actionError.value = ''
+    toast.success(`Usuario ${active ? 'reactivado' : 'desactivado'} correctamente.`)
     emit('subjectsChanged')
   } catch (err) {
-    actionError.value = err instanceof Error ? err.message : 'No se pudo eliminar el usuario'
+    actionError.value = err instanceof Error ? err.message : `No se pudo ${action.toLowerCase()} el usuario`
   }
 }
 

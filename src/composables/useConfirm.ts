@@ -3,6 +3,7 @@ import { reactive } from 'vue'
 export interface ConfirmOptions {
   title: string
   message?: string
+  warning?: string
   confirmLabel?: string
   cancelLabel?: string
   tone?: 'danger' | 'default'
