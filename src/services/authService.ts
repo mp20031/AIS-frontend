@@ -66,7 +66,34 @@ export const authService = {
     return info
   },
 
-  logout(): void {
+  /**
+   * End the session on the server, then forget it here.
+   *
+   * Removing the token from localStorage alone only made *this browser* forget
+   * it: iam-api kept the session open until the token expired, and so did every
+   * module session opened from the portal. `POST /v1/auth/logout` closes this
+   * session and the module sessions it launched (FR-36).
+   *
+   * Best effort on purpose: if iam-api can't be reached, the user still gets
+   * logged out locally — a logout button that sometimes doesn't log you out is
+   * worse than a session that lingers until expiry.
+   */
+  async logout(): Promise<void> {
+    if (localStorage.getItem(env.tokenKey)) {
+      try {
+        await apiRequest('/v1/auth/logout', { method: 'POST' })
+      } catch {
+        // Already closed (401), or the API is down: nothing more to do here.
+      }
+    }
+    this.clearLocalSession()
+  },
+
+  /**
+   * Forget the session in this browser only. For when the server has already
+   * said the session is gone (a 401) — telling it again would be pointless.
+   */
+  clearLocalSession(): void {
     localStorage.removeItem(env.tokenKey)
     localStorage.removeItem(USER_CACHE_KEY)
   },

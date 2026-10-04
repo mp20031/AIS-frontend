@@ -24,7 +24,7 @@
         <span>{{ subtitle }}</span>
       </div>
     </div>
-    <button class="sidebar__logout" type="button" aria-label="Cerrar sesion" @click="logout">
+    <button class="sidebar__logout" type="button" aria-label="Cerrar sesion" :disabled="loggingOut" @click="logout">
       <LogOut :size="16" />
       <span>Cerrar sesion</span>
     </button>
@@ -32,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, ShieldCheck } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import AppLogo from '@/components/AppLogo.vue'
@@ -82,9 +82,17 @@ const initials = computed(() =>
     .toUpperCase(),
 )
 
-const logout = () => {
-  authService.logout()
-  clear()
-  router.replace({ name: 'login' })
+const loggingOut = ref(false)
+
+const logout = async () => {
+  if (loggingOut.value) return
+  loggingOut.value = true
+  try {
+    await authService.logout()
+  } finally {
+    clear()
+    loggingOut.value = false
+    router.replace({ name: 'login' })
+  }
 }
 </script>
