@@ -10,3 +10,10 @@ export const PERMISSIONS = {
 } as const
 
 export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]
+
+// Any one of these opens /seguridad. Shared by the sidebar link and the route
+// guard so the two cannot disagree; each maps to a tab in SecurityView.
+export const SECURITY_ACCESS_PERMISSIONS: readonly PermissionCode[] = [
+  PERMISSIONS.IAM_ROLE_MANAGE,
+  PERMISSIONS.IAM_USER_VIEW,
+]

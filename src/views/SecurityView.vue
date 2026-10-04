@@ -67,6 +67,7 @@ import {
   type SubjectOut,
 } from '@/services/securityService'
 
+import { ApiError } from '@/services/httpClient'
 import { useSession } from '@/composables/useSession'
 import { PERMISSIONS } from '@/config/permissions'
 
@@ -130,14 +131,32 @@ const setInitialTab = () => {
   }
 }
 
+// A user-view-only account still needs roles and org units for the Users tab
+// (role names, assign dialog), but the API may refuse them. A 403 there means
+// "nothing to offer", not a broken page, so it degrades to an empty list.
+const emptyOnForbidden = <T,>(promise: Promise<T[]>): Promise<T[]> =>
+  promise.catch((err) => {
+    if (err instanceof ApiError && err.status === 403) return []
+    throw err
+  })
+
+const fetchRoles = () =>
+  canViewRoles.value
+    ? securityService.listRoles()
+    : emptyOnForbidden(securityService.listRoles())
+
 const loadAll = async () => {
   loading.value = true
   loadError.value = ''
 
   try {
-    const modulesPromise = securityService.listModules()
-    const rolesPromise = securityService.listRoles()
-    const orgUnitsPromise = securityService.listOrgUnits()
+    // Modules only feed the Roles tab.
+    const modulesPromise: Promise<ModuleWithPermissions[]> =
+      canViewRoles.value
+        ? securityService.listModules()
+        : Promise.resolve([])
+    const rolesPromise = fetchRoles()
+    const orgUnitsPromise = emptyOnForbidden(securityService.listOrgUnits())
 
     const subjectsPromise: Promise<SubjectOut[]> =
       canViewUsers.value
@@ -175,7 +194,7 @@ const loadAll = async () => {
 
 const refreshCounts = async () => {
   try {
-    const rolesPromise = securityService.listRoles()
+    const rolesPromise = fetchRoles()
 
     const subjectsPromise: Promise<SubjectOut[]> =
       canViewUsers.value

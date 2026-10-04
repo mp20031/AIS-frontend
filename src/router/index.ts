@@ -1,13 +1,14 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { authService } from '@/services/authService'
 import { useSession } from '@/composables/useSession'
+import { SECURITY_ACCESS_PERMISSIONS } from '@/config/permissions'
 
 declare module 'vue-router' {
   interface RouteMeta {
     requiresAuth?: boolean
     guestOnly?: boolean
     portalPadding?: boolean
-    requiredPermissions?: string[]
+    requiredPermissions?: readonly string[]
   }
 }
 
@@ -47,10 +48,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/SecurityView.vue'),
     meta: {
       requiresAuth: true,
-      requiredPermissions: [
-        'iam.user.view',
-        'iam.role.manage',
-      ],
+      requiredPermissions: SECURITY_ACCESS_PERMISSIONS,
     },
   },
 ]

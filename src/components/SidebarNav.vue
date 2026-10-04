@@ -36,7 +36,7 @@ import { computed } from 'vue'
 import { LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, ShieldCheck } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import AppLogo from '@/components/AppLogo.vue'
-import { PERMISSIONS } from '@/config/permissions'
+import { SECURITY_ACCESS_PERMISSIONS } from '@/config/permissions'
 import { authService } from '@/services/authService'
 import { useSession } from '@/composables/useSession'
 
@@ -58,17 +58,10 @@ const toggleLabel = computed(() => (props.collapsed ? 'Expandir menu' : 'Contrae
 
 // Live account from `/v1/auth/userinfo`, falling back to the login-time cache
 // only for the first paint, before that request resolves.
-const { user, clear } = useSession()
+const { user, clear, can } = useSession()
 const cached = authService.getCachedUser()
 
-const canAccessSecurity = computed(() =>
-  [
-    PERMISSIONS.IAM_USER_VIEW,
-    PERMISSIONS.IAM_ROLE_MANAGE,
-    PERMISSIONS.IAM_GRANT_CREATE,
-    PERMISSIONS.IAM_GRANT_REVOKE,
-  ].some((permission) => user.value?.permissions.includes(permission)),
-)
+const canAccessSecurity = computed(() => SECURITY_ACCESS_PERMISSIONS.some((permission) => can(permission)))
 
 const displayName = computed(
   () => user.value?.display_name || user.value?.username || cached?.name || cached?.username || 'Usuario',
