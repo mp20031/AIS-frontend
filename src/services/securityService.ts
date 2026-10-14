@@ -73,6 +73,7 @@ export interface GrantCreatePayload {
 
 export interface SubjectCreatePayload {
   username: string
+  password: string
   display_name?: string | null
   email?: string | null
   active?: boolean
