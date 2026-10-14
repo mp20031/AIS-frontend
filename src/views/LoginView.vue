@@ -44,8 +44,8 @@ const redirectTarget = () => {
   return typeof target === 'string' && target.startsWith('/') && !target.startsWith('//') ? target : null
 }
 const form = reactive({
-  email: 'jperez',
-  password: 'changeme',
+  email: '',
+  password: '',
   remember: true,
 })
 const loading = ref(false)

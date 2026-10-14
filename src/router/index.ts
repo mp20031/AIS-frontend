@@ -60,7 +60,13 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
-  const authenticated = authService.isAuthenticated()
+  let authenticated = authService.isAuthenticated()
+
+  // Before sending someone to the login page (or away from it), check whether
+  // the refresh cookie can bring their session back.
+  if (!authenticated && (to.meta.requiresAuth || to.meta.guestOnly)) {
+    authenticated = await authService.restoreSession()
+  }
 
   if (to.meta.requiresAuth && !authenticated) {
     return {

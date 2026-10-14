@@ -1,9 +1,12 @@
 import { env } from '@/config/env'
-import { apiRequest } from '@/services/httpClient'
+import { authStorage } from '@/services/authStorage'
+import { apiRequest, refreshAccessToken } from '@/services/httpClient'
 
 export interface LoginCredentials {
   email: string
   password: string
+  /** "Keep me signed in": whether the session survives closing the browser. */
+  remember: boolean
 }
 
 export interface AuthUser {
@@ -40,22 +43,23 @@ export const authService = {
       body: JSON.stringify({
         username: credentials.email,
         password: credentials.password,
+        remember: credentials.remember,
       }),
     })
 
     if (!response) throw new Error('Respuesta invalida del servidor')
 
-    localStorage.setItem(env.tokenKey, response.token)
+    authStorage.set(env.tokenKey, response.token, credentials.remember)
     // Cached only so the shell can paint a name before userinfo resolves.
     // `fetchUserInfo` is the authoritative source once it lands.
-    localStorage.setItem(USER_CACHE_KEY, JSON.stringify(response.user))
+    authStorage.set(USER_CACHE_KEY, JSON.stringify(response.user), credentials.remember)
     return response
   },
 
   /**
    * Authoritative identity, read from the server on every app load.
    *
-   * The sidebar used to render straight from the localStorage snapshot, which
+   * The sidebar used to render straight from the stored snapshot, which
    * went stale the moment the account changed — and kept rendering a session
    * whose roles had already been revoked. The server answers 401 when the
    * account is gone or deactivated, which is what lets us drop the session.
@@ -69,7 +73,7 @@ export const authService = {
   /**
    * End the session on the server, then forget it here.
    *
-   * Removing the token from localStorage alone only made *this browser* forget
+   * Removing the token from browser storage alone only made *this browser* forget
    * it: iam-api kept the session open until the token expired, and so did every
    * module session opened from the portal. `POST /v1/auth/logout` closes this
    * session and the module sessions it launched (FR-36).
@@ -79,7 +83,7 @@ export const authService = {
    * worse than a session that lingers until expiry.
    */
   async logout(): Promise<void> {
-    if (localStorage.getItem(env.tokenKey)) {
+    if (authStorage.get(env.tokenKey)) {
       try {
         await apiRequest('/v1/auth/logout', { method: 'POST' })
       } catch {
@@ -94,13 +98,13 @@ export const authService = {
    * said the session is gone (a 401) — telling it again would be pointless.
    */
   clearLocalSession(): void {
-    localStorage.removeItem(env.tokenKey)
-    localStorage.removeItem(USER_CACHE_KEY)
+    authStorage.remove(env.tokenKey)
+    authStorage.remove(USER_CACHE_KEY)
   },
 
   /** Last known user, for first paint only. Never a basis for a permission decision. */
   getCachedUser(): AuthUser | null {
-    const raw = localStorage.getItem(USER_CACHE_KEY)
+    const raw = authStorage.get(USER_CACHE_KEY)
     if (!raw) return null
 
     try {
@@ -108,12 +112,21 @@ export const authService = {
     } catch {
       // A corrupt entry used to throw straight through component setup and
       // break the whole shell, recoverable only by clearing site data by hand.
-      localStorage.removeItem(USER_CACHE_KEY)
+      authStorage.remove(USER_CACHE_KEY)
       return null
     }
   },
 
   isAuthenticated(): boolean {
-    return Boolean(localStorage.getItem(env.tokenKey))
+    return Boolean(authStorage.get(env.tokenKey))
+  },
+
+  /**
+   * No access token here, but the browser may still hold the refresh cookie:
+   * a new tab, or one whose token was cleared. True when that brought the
+   * session back.
+   */
+  async restoreSession(): Promise<boolean> {
+    return (await refreshAccessToken()) !== null
   },
 }
