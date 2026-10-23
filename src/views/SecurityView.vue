@@ -146,7 +146,10 @@ const fetchRoles = () =>
     : emptyOnForbidden(securityService.listRoles())
 
 const loadAll = async () => {
-  loading.value = true
+  // `loading` only covers the first load. A reload (after creating a user,
+  // say) must not swap the tabs for the loading message: that unmounts them,
+  // KeepAlive cache and all, and the tab comes back with its selection,
+  // search and filter reset — the user just created is no longer selected.
   loadError.value = ''
 
   try {
