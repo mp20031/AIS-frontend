@@ -110,7 +110,7 @@
               <Pencil :size="16" aria-hidden="true" />
             </button>
             <button
-              v-if="selected.depth > 0"
+              v-if="canDelete && selected.depth > 0"
               class="btn btn--danger-quiet icon-action"
               type="button"
               aria-label="Eliminar unidad"
@@ -233,6 +233,7 @@ const emit = defineEmits<{ changed: [] }>()
 // so a country administrator gets a 403 outside their country.
 const { can } = useSession()
 const canManage = computed(() => can(PERMISSIONS.IAM_ORG_UNIT_MANAGE))
+const canDelete = computed(() => can(PERMISSIONS.IAM_ORG_UNIT_DELETE))
 const confirm = useConfirm()
 
 const actionError = ref('')

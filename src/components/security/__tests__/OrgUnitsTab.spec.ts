@@ -50,7 +50,7 @@ describe('OrgUnitsTab', () => {
     localStorage.clear()
     sessionStorage.clear()
     useSession().clear()
-    await signInAs(['iam.org_unit.manage'])
+    await signInAs(['iam.org_unit.manage', 'iam.org_unit.delete'])
   })
 
   it('starts with only the root open', async () => {
@@ -157,6 +157,15 @@ describe('OrgUnitsTab', () => {
 
   it('never offers to delete the root', async () => {
     const { wrapper } = await mountTab()
+    expect(wrapper.find('[aria-label="Eliminar unidad"]').exists()).toBe(false)
+  })
+
+  it('offers delete only with iam.org_unit.delete', async () => {
+    useSession().clear()
+    await signInAs(['iam.org_unit.manage'])
+    const { wrapper, open } = await mountTab()
+    await open('dep1')
+    expect(wrapper.find('[aria-label="Renombrar unidad"]').exists()).toBe(true)
     expect(wrapper.find('[aria-label="Eliminar unidad"]').exists()).toBe(false)
   })
 

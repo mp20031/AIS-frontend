@@ -1,6 +1,7 @@
 export const PERMISSIONS = {
   IAM_GRANT_CREATE: 'iam.grant.create',
   IAM_GRANT_REVOKE: 'iam.grant.revoke',
+  IAM_ORG_UNIT_DELETE: 'iam.org_unit.delete',
   IAM_ORG_UNIT_MANAGE: 'iam.org_unit.manage',
   IAM_ROLE_MANAGE: 'iam.role.manage',
   IAM_USER_CREATE: 'iam.user.create',
