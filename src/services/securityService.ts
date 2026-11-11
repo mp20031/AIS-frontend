@@ -63,6 +63,14 @@ export interface OrgUnitOut {
   path: string | null
 }
 
+export interface OrgUnitCreatePayload {
+  parent_id: string
+  code: string
+  name: string
+  // Only read for the free levels (4 and 5); the API sets the others by depth.
+  type?: string | null
+}
+
 export interface GrantCreatePayload {
   subject_id: string
   role_id: string
@@ -161,5 +169,27 @@ export const securityService = {
 
   async listOrgUnits(): Promise<OrgUnitOut[]> {
     return (await apiRequest<OrgUnitOut[]>('/v1/org-units')) ?? []
+  },
+
+  async createOrgUnit(payload: OrgUnitCreatePayload): Promise<OrgUnitOut> {
+    const unit = await apiRequest<OrgUnitOut>('/v1/org-units', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+    if (!unit) throw new Error('Respuesta invalida del servidor')
+    return unit
+  },
+
+  async renameOrgUnit(orgUnitId: string, name: string): Promise<OrgUnitOut> {
+    const unit = await apiRequest<OrgUnitOut>(`/v1/org-units/${orgUnitId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    })
+    if (!unit) throw new Error('Respuesta invalida del servidor')
+    return unit
+  },
+
+  async deleteOrgUnit(orgUnitId: string): Promise<void> {
+    await apiRequest<null>(`/v1/org-units/${orgUnitId}`, { method: 'DELETE' })
   },
 }

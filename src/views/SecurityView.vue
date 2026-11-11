@@ -27,6 +27,16 @@
       >
         Usuarios
       </button>
+
+      <button
+        v-if="canManageOrgUnits"
+        class="tab-bar__item"
+        :class="{ 'tab-bar__item--active': activeTab === 'structure' }"
+        type="button"
+        @click="activeTab = 'structure'"
+      >
+        Estructura
+      </button>
     </div>
 
     <p v-if="loadError" class="login-card__error">
@@ -52,6 +62,12 @@
         @grants-changed="refreshCounts"
         @subjects-changed="loadAll"
       />
+
+      <OrgUnitsTab
+        v-else-if="activeTab === 'structure'"
+        :org-units="orgUnits"
+        @changed="loadAll"
+      />
     </KeepAlive>
   </div>
 </template>
@@ -73,8 +89,9 @@ import { PERMISSIONS } from '@/config/permissions'
 
 import RolesTab from '@/components/security/RolesTab.vue'
 import UsersTab from '@/components/security/UsersTab.vue'
+import OrgUnitsTab from '@/components/security/OrgUnitsTab.vue'
 
-type Tab = 'roles' | 'users'
+type Tab = 'roles' | 'users' | 'structure'
 
 const { can } = useSession()
 
@@ -86,9 +103,21 @@ const canViewUsers = computed(() =>
   can(PERMISSIONS.IAM_USER_VIEW),
 )
 
+const canManageOrgUnits = computed(() =>
+  can(PERMISSIONS.IAM_ORG_UNIT_MANAGE),
+)
+
 const activeTab = ref<Tab | null>(null)
 
 const heading = computed(() => {
+  if (activeTab.value === 'structure') {
+    return {
+      title: 'Seguridad · Estructura',
+      description:
+        'Paises, organizaciones, sucursales y sus niveles internos',
+    }
+  }
+
   if (activeTab.value === 'users') {
     return {
       title: 'Seguridad · Usuarios',
@@ -105,6 +134,10 @@ const heading = computed(() => {
 })
 
 const loadingMessage = computed(() => {
+  if (activeTab.value === 'structure') {
+    return 'Cargando estructura...'
+  }
+
   if (activeTab.value === 'users') {
     return 'Cargando usuarios...'
   }
@@ -128,6 +161,11 @@ const setInitialTab = () => {
 
   if (canViewUsers.value) {
     activeTab.value = 'users'
+    return
+  }
+
+  if (canManageOrgUnits.value) {
+    activeTab.value = 'structure'
   }
 }
 

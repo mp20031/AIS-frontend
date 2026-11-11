@@ -1,6 +1,7 @@
 export const PERMISSIONS = {
   IAM_GRANT_CREATE: 'iam.grant.create',
   IAM_GRANT_REVOKE: 'iam.grant.revoke',
+  IAM_ORG_UNIT_MANAGE: 'iam.org_unit.manage',
   IAM_ROLE_MANAGE: 'iam.role.manage',
   IAM_USER_CREATE: 'iam.user.create',
   IAM_USER_UPDATE: 'iam.user.update',
@@ -16,4 +17,5 @@ export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]
 export const SECURITY_ACCESS_PERMISSIONS: readonly PermissionCode[] = [
   PERMISSIONS.IAM_ROLE_MANAGE,
   PERMISSIONS.IAM_USER_VIEW,
+  PERMISSIONS.IAM_ORG_UNIT_MANAGE,
 ]
