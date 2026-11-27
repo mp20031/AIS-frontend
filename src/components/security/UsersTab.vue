@@ -192,10 +192,16 @@
           <small>Nombre visible dentro de la consola.</small>
         </label>
 
-        <label class="user-form-grid__wide">
+        <label>
           <span>Correo</span>
           <input v-model="newSubject.email" type="email" placeholder="p. ej. jperez@colegio.edu" maxlength="180" />
           <small>Opcional, pero recomendado para identificar cuentas.</small>
+        </label>
+
+        <label>
+          <span>Contraseña</span>
+          <input v-model="newSubject.password" type="password" autocomplete="new-password" maxlength="200" />
+          <small>Mínimo {{ MIN_PASSWORD_LENGTH }} caracteres.</small>
         </label>
 
         <section class="user-form-role user-form-grid__wide">
@@ -489,11 +495,15 @@ const confirmEditSubject = async () => {
 
 // ---------------- Create / delete user ----------------
 
+// Same as SubjectCreate in iam-api: checking here avoids a needless 422.
+const MIN_PASSWORD_LENGTH = 12
+
 const creatingSubject = ref(false)
 const newSubject = ref({
   username: '',
   displayName: '',
   email: '',
+  password: '',
   roleId: '',
   orgUnitId: '',
   inheritDown: false,
@@ -506,6 +516,7 @@ const startCreateSubject = () => {
     username: '',
     displayName: '',
     email: '',
+    password: '',
     roleId: props.roles[0]?.id ?? '',
     orgUnitId: props.orgUnits[0]?.id ?? '',
     inheritDown: false,
@@ -523,9 +534,14 @@ const confirmCreateSubject = async () => {
     actionError.value = 'Ingresa un usuario.'
     return
   }
+  if (newSubject.value.password.length < MIN_PASSWORD_LENGTH) {
+    actionError.value = `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`
+    return
+  }
   try {
     const subject = await securityService.createSubject({
       username,
+      password: newSubject.value.password,
       display_name: newSubject.value.displayName.trim() || null,
       email: newSubject.value.email.trim() || null,
       active: true,

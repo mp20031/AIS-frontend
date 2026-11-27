@@ -24,7 +24,7 @@
         <span>{{ subtitle }}</span>
       </div>
     </div>
-    <button class="sidebar__logout" type="button" aria-label="Cerrar sesion" @click="logout">
+    <button class="sidebar__logout" type="button" aria-label="Cerrar sesion" :disabled="loggingOut" @click="logout">
       <LogOut :size="16" />
       <span>Cerrar sesion</span>
     </button>
@@ -32,11 +32,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, ShieldCheck } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import AppLogo from '@/components/AppLogo.vue'
-import { PERMISSIONS } from '@/config/permissions'
+import { SECURITY_ACCESS_PERMISSIONS } from '@/config/permissions'
 import { authService } from '@/services/authService'
 import { useSession } from '@/composables/useSession'
 
@@ -58,17 +58,10 @@ const toggleLabel = computed(() => (props.collapsed ? 'Expandir menu' : 'Contrae
 
 // Live account from `/v1/auth/userinfo`, falling back to the login-time cache
 // only for the first paint, before that request resolves.
-const { user, clear } = useSession()
+const { user, clear, can } = useSession()
 const cached = authService.getCachedUser()
 
-const canAccessSecurity = computed(() =>
-  [
-    PERMISSIONS.IAM_USER_VIEW,
-    PERMISSIONS.IAM_ROLE_MANAGE,
-    PERMISSIONS.IAM_GRANT_CREATE,
-    PERMISSIONS.IAM_GRANT_REVOKE,
-  ].some((permission) => user.value?.permissions.includes(permission)),
-)
+const canAccessSecurity = computed(() => SECURITY_ACCESS_PERMISSIONS.some((permission) => can(permission)))
 
 const displayName = computed(
   () => user.value?.display_name || user.value?.username || cached?.name || cached?.username || 'Usuario',
@@ -89,9 +82,17 @@ const initials = computed(() =>
     .toUpperCase(),
 )
 
-const logout = () => {
-  authService.logout()
-  clear()
-  router.replace({ name: 'login' })
+const loggingOut = ref(false)
+
+const logout = async () => {
+  if (loggingOut.value) return
+  loggingOut.value = true
+  try {
+    await authService.logout()
+  } finally {
+    clear()
+    loggingOut.value = false
+    router.replace({ name: 'login' })
+  }
 }
 </script>

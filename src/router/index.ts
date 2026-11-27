@@ -1,13 +1,14 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { authService } from '@/services/authService'
 import { useSession } from '@/composables/useSession'
+import { SECURITY_ACCESS_PERMISSIONS } from '@/config/permissions'
 
 declare module 'vue-router' {
   interface RouteMeta {
     requiresAuth?: boolean
     guestOnly?: boolean
     portalPadding?: boolean
-    requiredPermissions?: string[]
+    requiredPermissions?: readonly string[]
   }
 }
 
@@ -47,10 +48,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/SecurityView.vue'),
     meta: {
       requiresAuth: true,
-      requiredPermissions: [
-        'iam.user.view',
-        'iam.role.manage',
-      ],
+      requiredPermissions: SECURITY_ACCESS_PERMISSIONS,
     },
   },
 ]
@@ -62,7 +60,13 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
-  const authenticated = authService.isAuthenticated()
+  let authenticated = authService.isAuthenticated()
+
+  // Before sending someone to the login page (or away from it), check whether
+  // the refresh cookie can bring their session back.
+  if (!authenticated && (to.meta.requiresAuth || to.meta.guestOnly)) {
+    authenticated = await authService.restoreSession()
+  }
 
   if (to.meta.requiresAuth && !authenticated) {
     return {

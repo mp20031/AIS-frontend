@@ -243,8 +243,8 @@ const showRouteNotice = async () => {
       },
     )
 
-    // Limpia el query para evitar que el toast reaparezca
-    // al recargar el dashboard.
+    // Clear the query so the toast doesn't reappear
+    // when the dashboard is reloaded.
     await router.replace({
       name: 'dashboard',
       query: {},

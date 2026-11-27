@@ -27,6 +27,16 @@
       >
         Usuarios
       </button>
+
+      <button
+        v-if="canManageOrgUnits"
+        class="tab-bar__item"
+        :class="{ 'tab-bar__item--active': activeTab === 'structure' }"
+        type="button"
+        @click="activeTab = 'structure'"
+      >
+        Estructura
+      </button>
     </div>
 
     <p v-if="loadError" class="login-card__error">
@@ -52,6 +62,12 @@
         @grants-changed="refreshCounts"
         @subjects-changed="loadAll"
       />
+
+      <OrgUnitsTab
+        v-else-if="activeTab === 'structure'"
+        :org-units="orgUnits"
+        @changed="loadAll"
+      />
     </KeepAlive>
   </div>
 </template>
@@ -67,13 +83,15 @@ import {
   type SubjectOut,
 } from '@/services/securityService'
 
+import { ApiError } from '@/services/httpClient'
 import { useSession } from '@/composables/useSession'
 import { PERMISSIONS } from '@/config/permissions'
 
 import RolesTab from '@/components/security/RolesTab.vue'
 import UsersTab from '@/components/security/UsersTab.vue'
+import OrgUnitsTab from '@/components/security/OrgUnitsTab.vue'
 
-type Tab = 'roles' | 'users'
+type Tab = 'roles' | 'users' | 'structure'
 
 const { can } = useSession()
 
@@ -85,9 +103,21 @@ const canViewUsers = computed(() =>
   can(PERMISSIONS.IAM_USER_VIEW),
 )
 
+const canManageOrgUnits = computed(() =>
+  can(PERMISSIONS.IAM_ORG_UNIT_MANAGE),
+)
+
 const activeTab = ref<Tab | null>(null)
 
 const heading = computed(() => {
+  if (activeTab.value === 'structure') {
+    return {
+      title: 'Seguridad · Estructura',
+      description:
+        'Paises, organizaciones, sucursales y sus niveles internos',
+    }
+  }
+
   if (activeTab.value === 'users') {
     return {
       title: 'Seguridad · Usuarios',
@@ -104,6 +134,10 @@ const heading = computed(() => {
 })
 
 const loadingMessage = computed(() => {
+  if (activeTab.value === 'structure') {
+    return 'Cargando estructura...'
+  }
+
   if (activeTab.value === 'users') {
     return 'Cargando usuarios...'
   }
@@ -127,17 +161,43 @@ const setInitialTab = () => {
 
   if (canViewUsers.value) {
     activeTab.value = 'users'
+    return
+  }
+
+  if (canManageOrgUnits.value) {
+    activeTab.value = 'structure'
   }
 }
 
+// A user-view-only account still needs roles and org units for the Users tab
+// (role names, assign dialog), but the API may refuse them. A 403 there means
+// "nothing to offer", not a broken page, so it degrades to an empty list.
+const emptyOnForbidden = <T,>(promise: Promise<T[]>): Promise<T[]> =>
+  promise.catch((err) => {
+    if (err instanceof ApiError && err.status === 403) return []
+    throw err
+  })
+
+const fetchRoles = () =>
+  canViewRoles.value
+    ? securityService.listRoles()
+    : emptyOnForbidden(securityService.listRoles())
+
 const loadAll = async () => {
-  loading.value = true
+  // `loading` only covers the first load. A reload (after creating a user,
+  // say) must not swap the tabs for the loading message: that unmounts them,
+  // KeepAlive cache and all, and the tab comes back with its selection,
+  // search and filter reset — the user just created is no longer selected.
   loadError.value = ''
 
   try {
-    const modulesPromise = securityService.listModules()
-    const rolesPromise = securityService.listRoles()
-    const orgUnitsPromise = securityService.listOrgUnits()
+    // Modules only feed the Roles tab.
+    const modulesPromise: Promise<ModuleWithPermissions[]> =
+      canViewRoles.value
+        ? securityService.listModules()
+        : Promise.resolve([])
+    const rolesPromise = fetchRoles()
+    const orgUnitsPromise = emptyOnForbidden(securityService.listOrgUnits())
 
     const subjectsPromise: Promise<SubjectOut[]> =
       canViewUsers.value
@@ -175,7 +235,7 @@ const loadAll = async () => {
 
 const refreshCounts = async () => {
   try {
-    const rolesPromise = securityService.listRoles()
+    const rolesPromise = fetchRoles()
 
     const subjectsPromise: Promise<SubjectOut[]> =
       canViewUsers.value

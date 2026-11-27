@@ -28,11 +28,11 @@ async function load(force = false): Promise<void> {
     try {
       user.value = await authService.fetchUserInfo()
     } catch (err) {
-      // A 401 here means the token is signed but the account behind it is gone
-      // or deactivated. Keeping the shell on screen would show a session that no
-      // longer exists, so the session is dropped instead.
+      // A 401 here means the token is signed but the session is closed, or the
+      // account behind it is gone or deactivated. Keeping the shell on screen
+      // would show a session that no longer exists, so it is dropped instead.
       if (err instanceof ApiError && err.status === 401) {
-        authService.logout()
+        authService.clearLocalSession()
         user.value = null
         await router.replace({ name: 'login' })
         return
